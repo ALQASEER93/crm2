@@ -1,0 +1,1630 @@
+الواجهة الأمامية (Web Platform) - إدارة المستخدمين والصلاحيات
+الهدف: بناء واجهة ويب للمسؤولين والمديرين لإدارة المستخدمين والصلاحيات.
+المهمة 1.10: إعداد مشروع React.js فارغ (لمنصة الويب).
+سنستخدم Create React App لإنشاء مشروع React.js.
+الخطوات:
+إنشاء مشروع React جديد:
+داخل مجلد dopamine-crm الرئيسي، قم بإنشاء مجلد frontend.
+bash
+# داخل مجلد dopamine-crm
+mkdir frontend
+cd frontend
+npx create-react-app dopamine-crm-web
+انتظر حتى يكتمل التثبيت.
+تثبيت المكتبات اللازمة:
+bash
+# داخل مجلد frontend/dopamine-crm-web
+npm install axios react-router-dom
+axios: للتفاعل مع API الواجهة الخلفية.
+react-router-dom: لإدارة التنقل بين الصفحات.
+المهمة 1.11: إنشاء هيكل المجلدات الأساسي لمنصة الويب.
+داخل مجلد frontend/dopamine-crm-web/src، سنقوم بإنشاء المجلدات التالية:
+# داخل مجلد frontend/dopamine-crm-web
+mkdir src/pages
+mkdir src/components
+mkdir src/context
+mkdir src/api
+المهمة 1.12: تطوير سياق المصادقة (AuthContext) لمنصة الويب.
+الملف 1: frontend/dopamine-crm-web/src/context/AuthContext.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/context/AuthContext.js
+
+import React, { createContext, useState, useEffect } from "react";
+import { loginUser } from "../api/auth"; // سنقوم بإنشاء هذا الملف لاحقاً
+
+export const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = () => {
+    try {
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        setUser(JSON.parse(userData));
+      }
+    } catch (e) {
+      console.error("Failed to load user from storage", e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const login = async (email, password) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const response = await loginUser(email, password);
+      const userData = response.data;
+      localStorage.setItem("user", JSON.stringify(userData));
+      setUser(userData);
+      return true;
+    } catch (e) {
+      setError(e.response?.data?.message || "Login failed");
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem("user");
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, isLoading, error, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+المهمة 1.13: تطوير وظائف API لمنصة الويب.
+الملف 1: frontend/dopamine-crm-web/src/api/auth.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/api/auth.js
+
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api/auth";
+
+export const loginUser = (email, password ) => {
+  return axios.post(`${API_URL}/login`, { email, password });
+};
+الملف 2: frontend/dopamine-crm-web/src/api/users.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/api/users.js
+
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api/users";
+
+const getConfig = (token ) => ({
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+
+export const getUsers = (token) => {
+  return axios.get(API_URL, getConfig(token));
+};
+
+export const addUser = (userData, token) => {
+  return axios.post(API_URL, userData, getConfig(token));
+};
+
+export const updateUser = (id, userData, token) => {
+  return axios.put(`${API_URL}/${id}`, userData, getConfig(token));
+};
+
+export const deleteUser = (id, token) => {
+  return axios.delete(`${API_URL}/${id}`, getConfig(token));
+};
+المهمة 1.14: تطوير شاشة تسجيل الدخول (LoginPage).
+الملف 1: frontend/dopamine-crm-web/src/pages/LoginPage.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/pages/LoginPage.js
+
+import React, { useState, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { useHistory } from "react-router-dom";
+
+const LoginPage = () => {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const { login, error, isLoading } = useContext(AuthContext);
+  const history = useHistory();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const success = await login(email, password);
+    if (success) {
+      history.push("/dashboard");
+    }
+  };
+
+  return (
+    <div>
+      <h2>Login</h2>
+      <form onSubmit={handleSubmit}>
+        <div>
+          <label>Email:</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <label>Password:</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? "Logging in..." : "Login"}
+        </button>
+        {error && <p style={{ color: "red" }}>{error}</p>}
+      </form>
+    </div>
+  );
+};
+
+export default LoginPage;
+المهمة 1.15: تطوير لوحة المعلومات (DashboardPage) الأساسية.
+الملف 1: frontend/dopamine-crm-web/src/pages/DashboardPage.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/pages/DashboardPage.js
+
+import React, { useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+
+const DashboardPage = () => {
+  const { user, logout } = useContext(AuthContext);
+
+  return (
+    <div>
+      <h1>Welcome, {user?.name}</h1>
+      <p>Your Role: {user?.role}</p>
+      <button onClick={logout}>Logout</button>
+    </div>
+  );
+};
+
+export default DashboardPage;
+المهمة 1.16: تطوير شاشة إدارة المستخدمين (UserManagementPage).
+الملف 1: frontend/dopamine-crm-web/src/pages/UserManagementPage.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/pages/UserManagementPage.js
+
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { getUsers, addUser, updateUser, deleteUser } from "../api/users";
+
+const UserManagementPage = () => {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user } = useContext(AuthContext);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await getUsers(user.token);
+        setUsers(response.data);
+      } catch (err) {
+        setError("Failed to fetch users");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.token) {
+      fetchUsers();
+    }
+  }, [user]);
+
+  // يمكنك إضافة وظائف لإضافة، تعديل، وحذف المستخدمين هنا
+
+  if (loading) return <p>Loading users...</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
+
+  return (
+    <div>
+      <h2>User Management</h2>
+      {/* يمكنك إضافة نموذج لإضافة مستخدم جديد هنا */}
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((u) => (
+            <tr key={u._id}>
+              <td>{u.name}</td>
+              <td>{u.email}</td>
+              <td>{u.role}</td>
+              <td>{u.isActive ? "Active" : "Inactive"}</td>
+              <td>
+                <button>Edit</button>
+                <button>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default UserManagementPage;
+المهمة 1.17: تحديث App.js لدمج سياق المصادقة والتوجيه.
+الملف 1: frontend/dopamine-crm-web/src/App.js (بعد التحديث)
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/App.js
+
+import React, { useContext } from "react";
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route,
+  Redirect,
+} from "react-router-dom";
+import { AuthProvider, AuthContext } from "./context/AuthContext";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import UserManagementPage from "./pages/UserManagementPage";
+
+const PrivateRoute = ({ component: Component, ...rest }) => {
+  const { user } = useContext(AuthContext);
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        user ? <Component {...props} /> : <Redirect to="/login" />
+      }
+    />
+  );
+};
+
+const AdminRoute = ({ component: Component, ...rest }) => {
+  const { user } = useContext(AuthContext);
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        user && user.role === "admin" ? (
+          <Component {...props} />
+        ) : (
+          <Redirect to="/dashboard" />
+        )
+      }
+    />
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Switch>
+          <Route path="/login" component={LoginPage} />
+          <PrivateRoute path="/dashboard" component={DashboardPage} />
+          <AdminRoute path="/users" component={UserManagementPage} />
+          <Redirect from="/" to="/dashboard" />
+        </Switch>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
+الملف 2: frontend/dopamine-crm-web/src/index.js (تأكد من أن App مغلف بـ React.StrictMode)
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/index.js
+
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './index.css';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+الخطوات التالية:
+لقد قمت الآن بتزويدك بالهياكل البرمجية الأساسية ومقتطفات الكود لوحدة المصادقة وإدارة المستخدمين في الواجهة الأمامية لمنصة الويب.
+لجعل هذا يعمل، ستحتاج إلى:
+تشغيل الواجهة الخلفية: cd backend && npm start.
+تشغيل الواجهة الأمامية: cd frontend/dopamine-crm-web && npm start.
+للاختبار:
+يمكنك الآن فتح متصفح الويب الخاص بك والانتقال إلى http://localhost:3000.
+سيتم توجيهك إلى صفحة تسجيل الدخول. يمكنك تسجيل الدخول باستخدام حساب المسؤول الذي أنشأته.
+بعد تسجيل الدخول، سيتم توجيهك إلى لوحة المعلومات.
+يمكنك الانتقال إلى http://localhost:3000/users لرؤية صفحة إدارة المستخدمين.
+سأواصل في رسالتي القادمة بتقديم مقتطفات الكود لـ Sprint 2: إدارة البيانات الأساسية والعملاء.
+تمام، سأواصل الآن تقديم مقتطفات الكود للوظائف المتبقية في خارطة الطريق التي وضعناها، دون توقف أو انتظار للرد.
+Sprint 2: إدارة البيانات الأساسية والعملاء (Core Data & Client Management)
+الهدف: بناء نظام لإدارة العملاء (أطباء، صيدليات) والمناطق الجغرافية.
+المهمة 2.1: تصميم مخططات قاعدة البيانات لجداول Client و Territory (Mongoose Models).
+سنقوم بإنشاء ملفات المخططات داخل مجلد backend/models.
+الملف 1: backend/models/Territory.js
+هذا الملف سيحتوي على مخطط المنطقة الجغرافية (محافظة، لواء/قضاء، حي).
+javascript
+// محتوى ملف: backend/models/Territory.js
+
+const mongoose = require("mongoose");
+
+const TerritorySchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+      unique: true,
+    },
+    type: {
+      type: String,
+      enum: ["governorate", "district", "area"], // محافظة، لواء/قضاء، حي
+      required: true,
+    },
+    parent: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Territory",
+      default: null, // للمحافظات لا يوجد والد
+    },
+  },
+  { timestamps: true }
+);
+
+module.exports = mongoose.model("Territory", TerritorySchema);
+الملف 2: backend/models/Client.js
+هذا الملف سيحتوي على مخطط العميل (طبيب، صيدلية)، بما في ذلك معلومات الاتصال، التخصص، والموقع الجغرافي.
+javascript
+// محتوى ملف: backend/models/Client.js
+
+const mongoose = require("mongoose");
+
+const ClientSchema = new mongoose.Schema(
+  {
+    name: {
+      type: String,
+      required: true,
+    },
+    type: {
+      type: String,
+      enum: ["doctor", "pharmacy", "hospital", "clinic"], // طبيب، صيدلية، مستشفى، عيادة
+      required: true,
+    },
+    specialty: {
+      type: String, // تخصص الطبيب (اختياري للصيدليات)
+    },
+    address: {
+      type: String,
+      required: true,
+    },
+    location: {
+      // إحداثيات GPS
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        required: true,
+      },
+    },
+    phone: {
+      type: String,
+    },
+    email: {
+      type: String,
+    },
+    territory: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Territory",
+      required: true,
+    },
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null, // المندوب المسؤول عن العميل
+    },
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
+  },
+  { timestamps: true }
+);
+
+// إنشاء فهرس جغرافي لتحسين أداء الاستعلامات القائمة على الموقع
+ClientSchema.index({ location: "2dsphere" });
+
+module.exports = mongoose.model("Client", ClientSchema);
+المهمة 2.2: تطوير API لإدارة المناطق (CRUD Operations).
+سنقوم بإنشاء ملف جديد باسم territoryRoutes.js داخل مجلد backend/routes.
+الملف 1: backend/routes/territoryRoutes.js
+javascript
+// محتوى ملف: backend/routes/territoryRoutes.js
+
+const express = require("express");
+const Territory = require("../models/Territory");
+const { protect, authorize } = require("../middleware/authMiddleware");
+
+const router = express.Router();
+
+// @route   GET /api/territories
+// @desc    الحصول على جميع المناطق
+// @access  Private/Admin, Regional Manager, Manager
+router.get(
+  "/",
+  protect,
+  authorize("admin", "regional_manager", "manager"),
+  async (req, res) => {
+    try {
+      const territories = await Territory.find({}).populate("parent");
+      res.json(territories);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+);
+
+// @route   POST /api/territories
+// @desc    إضافة منطقة جديدة
+// @access  Private/Admin
+router.post("/", protect, authorize("admin"), async (req, res) => {
+  const { name, type, parent } = req.body;
+
+  try {
+    const territory = await Territory.create({
+      name,
+      type,
+      parent: parent || null,
+    });
+    res.status(201).json(territory);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   PUT /api/territories/:id
+// @desc    تعديل منطقة
+// @access  Private/Admin
+router.put("/:", protect, authorize("admin"), async (req, res) => {
+  const { name, type, parent } = req.body;
+
+  try {
+    const territory = await Territory.findById(req.params.id);
+
+    if (territory) {
+      territory.name = name || territory.name;
+      territory.type = type || territory.type;
+      territory.parent = parent === undefined ? null : parent;
+
+      const updatedTerritory = await territory.save();
+      res.json(updatedTerritory);
+    } else {
+      res.status(404).json({ message: "Territory not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   DELETE /api/territories/:id
+// @desc    حذف منطقة
+// @access  Private/Admin
+router.delete("/:", protect, authorize("admin"), async (req, res) => {
+  try {
+    const territory = await Territory.findById(req.params.id);
+
+    if (territory) {
+      await territory.deleteOne();
+      res.json({ message: "Territory removed" });
+    } else {
+      res.status(404).json({ message: "Territory not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+module.exports = router;
+المهمة 2.3: تطوير API لإدارة العملاء (CRUD Operations).
+سنقوم بإنشاء ملف جديد باسم clientRoutes.js داخل مجلد backend/routes.
+الملف 1: backend/routes/clientRoutes.js
+javascript
+// محتوى ملف: backend/routes/clientRoutes.js
+
+const express = require("express");
+const Client = require("../models/Client");
+const { protect, authorize } = require("../middleware/authMiddleware");
+
+const router = express.Router();
+
+// @route   GET /api/clients
+// @desc    الحصول على جميع العملاء (مع فلاتر حسب الدور)
+// @access  Private/All authenticated users
+router.get("/", protect, async (req, res) => {
+  try {
+    let query = {};
+
+    // فلاتر حسب الدور
+    if (req.user.role === "rep") {
+      query.assignedTo = req.user._id;
+    } else if (req.user.role === "manager") {
+      // هنا ستحتاج إلى منطق للحصول على المندوبين التابعين للمدير
+      // وتبحث عن العملاء المخصصين لهؤلاء المندوبين
+      // حالياً، سأفترض أن المدير يرى جميع العملاء
+    } else if (req.user.role === "regional_manager") {
+      // منطق مشابه للمدير الإقليمي
+    }
+
+    const clients = await Client.find(query)
+      .populate("territory")
+      .populate("assignedTo", "name email");
+    res.json(clients);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   POST /api/clients
+// @desc    إضافة عميل جديد
+// @access  Private/Admin, Manager
+router.post("/", protect, authorize("admin", "manager"), async (req, res) => {
+  const {
+    name,
+    type,
+    specialty,
+    address,
+    location,
+    phone,
+    email,
+    territory,
+    assignedTo,
+  } = req.body;
+
+  try {
+    const client = await Client.create({
+      name,
+      type,
+      specialty,
+      address,
+      location,
+      phone,
+      email,
+      territory,
+      assignedTo: assignedTo || null, // يمكن تعيينه لاحقاً
+    });
+    res.status(201).json(client);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   PUT /api/clients/:id
+// @desc    تعديل عميل
+// @access  Private/Admin, Manager, Rep (محدود)
+router.put("/:", protect, async (req, res) => {
+  const { name, type, specialty, address, location, phone, email, territory, assignedTo, isActive } = req.body;
+
+  try {
+    const client = await Client.findById(req.params.id);
+
+    if (client) {
+      // تحقق من الصلاحيات قبل التعديل
+      if (
+        req.user.role === "rep" &&
+        client.assignedTo.toString() !== req.user._id.toString()
+      ) {
+        return res.status(403).json({ message: "Not authorized to update this client" });
+      }
+
+      client.name = name || client.name;
+      client.type = type || client.type;
+      client.specialty = specialty || client.specialty;
+      client.address = address || client.address;
+      client.location = location || client.location;
+      client.phone = phone || client.phone;
+      client.email = email || client.email;
+
+      // هذه الحقول لا يمكن للمندوب تعديلها
+      if (req.user.role !== "rep") {
+        client.territory = territory || client.territory;
+        client.assignedTo = assignedTo === undefined ? null : assignedTo;
+        client.isActive = typeof isActive === "boolean" ? isActive : client.isActive;
+      }
+
+      const updatedClient = await client.save();
+      res.json(updatedClient);
+    } else {
+      res.status(404).json({ message: "Client not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   DELETE /api/clients/:id
+// @desc    حذف عميل
+// @access  Private/Admin
+router.delete("/:", protect, authorize("admin"), async (req, res) => {
+  try {
+    const client = await Client.findById(req.params.id);
+
+    if (client) {
+      await client.deleteOne();
+      res.json({ message: "Client removed" });
+    } else {
+      res.status(404).json({ message: "Client not found" });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+module.exports = router;
+المهمة 2.4: تحديث server.js لدمج مسارات المناطق والعملاء.
+javascript
+// محتوى ملف: server.js (بعد التحديث)
+
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const territoryRoutes = require("./routes/territoryRoutes"); // استيراد مسارات المناطق
+const clientRoutes = require("./routes/clientRoutes"); // استيراد مسارات العملاء
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(express.json());
+
+// الاتصال بقاعدة البيانات MongoDB
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected successfully!"))
+  .catch((err) => console.error("MongoDB connection error:", err));
+
+// مسار اختبار بسيط
+app.get("/", (req, res) => {
+  res.send("Dopamine CRM Backend API is running!");
+});
+
+// استخدام مسارات المصادقة والمستخدمين والمناطق والعملاء
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/territories", territoryRoutes);
+app.use("/api/clients", clientRoutes);
+
+// تشغيل الخادم
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+الآن، لننتقل إلى: الواجهة الأمامية (Web Platform) - Sprint 2
+المهمة 2.5: تطوير وظائف API لمنصة الويب لإدارة المناطق والعملاء.
+الملف 1: frontend/dopamine-crm-web/src/api/territories.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/api/territories.js
+
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api/territories";
+
+const getConfig = (token ) => ({
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+
+export const getTerritories = (token) => {
+  return axios.get(API_URL, getConfig(token));
+};
+
+export const addTerritory = (territoryData, token) => {
+  return axios.post(API_URL, territoryData, getConfig(token));
+};
+
+export const updateTerritory = (id, territoryData, token) => {
+  return axios.put(`${API_URL}/${id}`, territoryData, getConfig(token));
+};
+
+export const deleteTerritory = (id, token) => {
+  return axios.delete(`${API_URL}/${id}`, getConfig(token));
+};
+الملف 2: frontend/dopamine-crm-web/src/api/clients.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/api/clients.js
+
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api/clients";
+
+const getConfig = (token ) => ({
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+
+export const getClients = (token) => {
+  return axios.get(API_URL, getConfig(token));
+};
+
+export const addClient = (clientData, token) => {
+  return axios.post(API_URL, clientData, getConfig(token));
+};
+
+export const updateClient = (id, clientData, token) => {
+  return axios.put(`${API_URL}/${id}`, clientData, getConfig(token));
+};
+
+export const deleteClient = (id, token) => {
+  return axios.delete(`${API_URL}/${id}`, getConfig(token));
+};
+المهمة 2.6: تطوير شاشة إدارة المناطق (TerritoryManagementPage).
+الملف 1: frontend/dopamine-crm-web/src/pages/TerritoryManagementPage.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/pages/TerritoryManagementPage.js
+
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { getTerritories, addTerritory, updateTerritory, deleteTerritory } from "../api/territories";
+
+const TerritoryManagementPage = () => {
+  const [territories, setTerritories] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user } = useContext(AuthContext);
+
+  useEffect(() => {
+    const fetchTerritories = async () => {
+      try {
+        const response = await getTerritories(user.token);
+        setTerritories(response.data);
+      } catch (err) {
+        setError("Failed to fetch territories");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.token) {
+      fetchTerritories();
+    }
+  }, [user]);
+
+  // يمكنك إضافة وظائف لإضافة، تعديل، وحذف المناطق هنا
+
+  if (loading) return <p>Loading territories...</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
+
+  return (
+    <div>
+      <h2>Territory Management</h2>
+      {/* يمكنك إضافة نموذج لإضافة منطقة جديدة هنا */}
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Parent</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {territories.map((t) => (
+            <tr key={t._id}>
+              <td>{t.name}</td>
+              <td>{t.type}</td>
+              <td>{t.parent ? t.parent.name : "N/A"}</td>
+              <td>
+                <button>Edit</button>
+                <button>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default TerritoryManagementPage;
+المهمة 2.7: تطوير شاشة إدارة العملاء (ClientManagementPage).
+الملف 1: frontend/dopamine-crm-web/src/pages/ClientManagementPage.js
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/pages/ClientManagementPage.js
+
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "../context/AuthContext";
+import { getClients, addClient, updateClient, deleteClient } from "../api/clients";
+
+const ClientManagementPage = () => {
+  const [clients, setClients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const { user } = useContext(AuthContext);
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const response = await getClients(user.token);
+        setClients(response.data);
+      } catch (err) {
+        setError("Failed to fetch clients");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user?.token) {
+      fetchClients();
+    }
+  }, [user]);
+
+  // يمكنك إضافة وظائف لإضافة، تعديل، وحذف العملاء هنا
+
+  if (loading) return <p>Loading clients...</p>;
+  if (error) return <p style={{ color: "red" }}>{error}</p>;
+
+  return (
+    <div>
+      <h2>Client Management</h2>
+      {/* يمكنك إضافة نموذج لإضافة عميل جديد هنا */}
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Specialty</th>
+            <th>Address</th>
+            <th>Territory</th>
+            <th>Assigned To</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {clients.map((c) => (
+            <tr key={c._id}>
+              <td>{c.name}</td>
+              <td>{c.type}</td>
+              <td>{c.specialty || "N/A"}</td>
+              <td>{c.address}</td>
+              <td>{c.territory ? c.territory.name : "N/A"}</td>
+              <td>{c.assignedTo ? c.assignedTo.name : "Unassigned"}</td>
+              <td>
+                <button>Edit</button>
+                <button>Delete</button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default ClientManagementPage;
+المهمة 2.8: تحديث App.js في الواجهة الأمامية لدمج مسارات إدارة المناطق والعملاء.
+الملف 1: frontend/dopamine-crm-web/src/App.js (بعد التحديث)
+javascript
+// محتوى ملف: frontend/dopamine-crm-web/src/App.js
+
+import React, { useContext } from "react";
+import {
+  BrowserRouter as Router,
+  Switch,
+  Route,
+  Redirect,
+} from "react-router-dom";
+import { AuthProvider, AuthContext } from "./context/AuthContext";
+import LoginPage from "./pages/LoginPage";
+import DashboardPage from "./pages/DashboardPage";
+import UserManagementPage from "./pages/UserManagementPage";
+import TerritoryManagementPage from "./pages/TerritoryManagementPage"; // استيراد
+import ClientManagementPage from "./pages/ClientManagementPage"; // استيراد
+
+const PrivateRoute = ({ component: Component, ...rest }) => {
+  const { user } = useContext(AuthContext);
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        user ? <Component {...props} /> : <Redirect to="/login" />
+      }
+    />
+  );
+};
+
+const AdminRoute = ({ component: Component, ...rest }) => {
+  const { user } = useContext(AuthContext);
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        user && user.role === "admin" ? (
+          <Component {...props} />
+        ) : (
+          <Redirect to="/dashboard" />
+        )
+      }
+    />
+  );
+};
+
+const AdminManagerRoute = ({ component: Component, ...rest }) => {
+  const { user } = useContext(AuthContext);
+  return (
+    <Route
+      {...rest}
+      render={(props) =>
+        user && (user.role === "admin" || user.role === "manager") ? (
+          <Component {...props} />
+        ) : (
+          <Redirect to="/dashboard" />
+        )
+      }
+    />
+  );
+};
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Switch>
+          <Route path="/login" component={LoginPage} />
+          <PrivateRoute path="/dashboard" component={DashboardPage} />
+          <AdminRoute path="/users" component={UserManagementPage} />
+          <AdminRoute path="/territories" component={TerritoryManagementPage} /> {/* إضافة مسار المناطق */}
+          <AdminManagerRoute path="/clients" component={ClientManagementPage} /> {/* إضافة مسار العملاء */}
+          <Redirect from="/" to="/dashboard" />
+        </Switch>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
+الخطوات التالية:
+لقد قمت الآن بتزويدك بالهياكل البرمجية الأساسية ومقتطفات الكود لوحدة إدارة البيانات الأساسية والعملاء في الواجهة الخلفية والواجهة الأمامية لمنصة الويب.
+لجعل هذا يعمل، ستحتاج إلى:
+تشغيل الواجهة الخلفية: cd backend && npm start.
+تشغيل الواجهة الأمامية: cd frontend/dopamine-crm-web && npm start.
+للاختبار:
+يمكنك الآن فتح متصفح الويب الخاص بك والانتقال إلى http://localhost:3000.
+سجل الدخول بحساب مسؤول.
+يمكنك الانتقال إلى http://localhost:3000/territories لإدارة المناطق.
+يمكنك الانتقال إلى http://localhost:3000/clients لإدارة العملاء.
+سأواصل في رسالتي القادمة بتقديم مقتطفات الكود لـ Sprint 3: إدارة الزيارات الميدانية (Field Visit Management )، بدءًا من الواجهة الخلفية. هذا السبرنت سيكون أكثر تعقيدًا بسبب الحاجة إلى التعامل مع الموقع الجغرافي والوقت. سأركز على توفير الأساسيات التي يمكن البناء عليها.
+00:59
+تمام، سأواصل الآن تقديم مقتطفات الكود للوظائف المتبقية في خارطة الطريق التي وضعناها، دون توقف أو انتظار للرد.
+Sprint 3: إدارة الزيارات الميدانية (Field Visit Management)
+الهدف: بناء نظام لتتبع الزيارات الميدانية للمندوبين، بما في ذلك بدء الزيارة المعتمد على الموقع، عداد الوقت، تسجيل الملاحظات، وإنهاء الزيارة.
+المهمة 3.1: تصميم مخطط قاعدة البيانات لجدول Visit (Mongoose Model).
+سنقوم بإنشاء ملف جديد باسم Visit.js داخل مجلد backend/models.
+الملف 1: backend/models/Visit.js
+javascript
+// محتوى ملف: backend/models/Visit.js
+
+const mongoose = require("mongoose");
+
+const VisitSchema = new mongoose.Schema(
+  {
+    rep: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    client: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Client",
+      required: true,
+    },
+    startTime: {
+      type: Date,
+      required: true,
+    },
+    endTime: {
+      type: Date,
+    },
+    startLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+        required: true,
+      },
+    },
+    endLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
+        default: "Point",
+      },
+      coordinates: {
+        type: [Number], // [longitude, latitude]
+      },
+    },
+    duration: {
+      type: Number, // المدة بالثواني
+    },
+    notes: {
+      type: String,
+    },
+    visitResult: {
+      type: String, // مثلاً: "تمت بنجاح", "لم تتم", "متابعة"
+    },
+    // يمكن إضافة حقول أخرى مثل: attachments (صور/فيديوهات), productsDiscussed, samplesGiven
+  },
+  { timestamps: true }
+);
+
+VisitSchema.index({ startLocation: "2dsphere" });
+
+module.exports = mongoose.model("Visit", VisitSchema);
+المهمة 3.2: تطوير API لإدارة الزيارات (Start, End, Get).
+سنقوم بإنشاء ملف جديد باسم visitRoutes.js داخل مجلد backend/routes.
+الملف 1: backend/routes/visitRoutes.js
+javascript
+// محتوى ملف: backend/routes/visitRoutes.js
+
+const express = require("express");
+const Visit = require("../models/Visit");
+const Client = require("../models/Client"); // لاستخدام معلومات العميل (الموقع)
+const { protect, authorize } = require("../middleware/authMiddleware");
+
+const router = express.Router();
+
+// دالة مساعدة لحساب المسافة بين نقطتين (Haversine formula)
+const getDistanceFromLatLonInKm = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // metres
+  const φ1 = (lat1 * Math.PI) / 180; // φ, λ in radians
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+    Math.cos(φ1) * Math.cos(φ2) *
+      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  const d = R * c; // in metres
+  return d;
+};
+
+// @route   POST /api/visits/start
+// @desc    بدء زيارة جديدة
+// @access  Private/Rep
+router.post("/start", protect, authorize("rep"), async (req, res) => {
+  const { clientId, startLatitude, startLongitude } = req.body;
+
+  try {
+    const client = await Client.findById(clientId);
+    if (!client) {
+      return res.status(404).json({ message: "Client not found" });
+    }
+
+    // التحقق من الموقع (Geofence: 100 متر)
+    const clientLat = client.location.coordinates[1];
+    const clientLon = client.location.coordinates[0];
+    const distance = getDistanceFromLatLonInKm(
+      startLatitude,
+      startLongitude,
+      clientLat,
+      clientLon
+    );
+
+    if (distance > 100) {
+      return res.status(400).json({ message: "You are too far from the client location." });
+    }
+
+    // التحقق من عدم وجود زيارة نشطة للمندوب لهذا العميل
+    const activeVisit = await Visit.findOne({
+      rep: req.user._id,
+      client: clientId,
+      endTime: null,
+    });
+
+    if (activeVisit) {
+      return res.status(400).json({ message: "There is an active visit for this client." });
+    }
+
+    const visit = await Visit.create({
+      rep: req.user._id,
+      client: clientId,
+      startTime: new Date(),
+      startLocation: {
+        type: "Point",
+        coordinates: [startLongitude, startLatitude],
+      },
+    });
+
+    res.status(201).json(visit);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   PUT /api/visits/end/:id
+// @desc    إنهاء زيارة
+// @access  Private/Rep
+router.put("/end/:id", protect, authorize("rep"), async (req, res) => {
+  const { endLatitude, endLongitude, notes, visitResult } = req.body;
+
+  try {
+    const visit = await Visit.findById(req.params.id);
+
+    if (!visit) {
+      return res.status(404).json({ message: "Visit not found" });
+    }
+
+    if (visit.rep.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: "Not authorized to end this visit" });
+    }
+
+    if (visit.endTime) {
+      return res.status(400).json({ message: "Visit already ended" });
+    }
+
+    const endTime = new Date();
+    const duration = (endTime.getTime() - visit.startTime.getTime()) / 1000; // بالثواني
+
+    visit.endTime = endTime;
+    visit.endLocation = {
+      type: "Point",
+      coordinates: [endLongitude, endLatitude],
+    };
+    visit.duration = duration;
+    visit.notes = notes;
+    visit.visitResult = visitResult;
+
+    const updatedVisit = await visit.save();
+    res.json(updatedVisit);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @route   GET /api/visits/my
+// @desc    الحصول على زيارات المندوب
+// @access  Private/Rep
+router.get("/my", protect, authorize("rep"), async (req, res) => {
+  try {
+    const visits = await Visit.find({ rep: req.user._id })
+      .populate("client", "name type address")
+      .sort({ startTime: -1 });
+    res.json(visits);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+module.exports = router;
+المهمة 3.3: تحديث server.js لدمج مسارات الزيارات.
+javascript
+// محتوى ملف: server.js (بعد التحديث)
+
+require("dotenv").config();
+const express = require("express");
+const mongoose = require("mongoose");
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const territoryRoutes = require("./routes/territoryRoutes");
+const clientRoutes = require("./routes/clientRoutes");
+const visitRoutes = require("./routes/visitRoutes"); // استيراد مسارات الزيارات
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(express.json());
+
+// الاتصال بقاعدة البيانات MongoDB
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected successfully!"))
+  .catch((err) => console.error("MongoDB connection error:", err));
+
+// مسار اختبار بسيط
+app.get("/", (req, res) => {
+  res.send("Dopamine CRM Backend API is running!");
+});
+
+// استخدام مسارات المصادقة والمستخدمين والمناطق والعملاء والزيارات
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/territories", territoryRoutes);
+app.use("/api/clients", clientRoutes);
+app.use("/api/visits", visitRoutes);
+
+// تشغيل الخادم
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+الآن، لننتقل إلى: تطبيق الموبايل (Mobile App) - Sprint 3
+المهمة 3.4: تطوير وظائف API لتطبيق الموبايل لإدارة الزيارات.
+الملف 1: mobile/dopamine-crm-mobile/src/api/visits.js
+javascript
+// محتوى ملف: mobile/dopamine-crm-mobile/src/api/visits.js
+
+import axios from "axios";
+
+const API_URL = "http://localhost:5000/api/visits";
+
+const getConfig = (token ) => ({
+  headers: {
+    Authorization: `Bearer ${token}`,
+  },
+});
+
+export const startVisit = (clientId, startLatitude, startLongitude, token) => {
+  return axios.post(
+    `${API_URL}/start`,
+    { clientId, startLatitude, startLongitude },
+    getConfig(token)
+  );
+};
+
+export const endVisit = (visitId, endLatitude, endLongitude, notes, visitResult, token) => {
+  return axios.put(
+    `${API_URL}/end/${visitId}`,
+    { endLatitude, endLongitude, notes, visitResult },
+    getConfig(token)
+  );
+};
+
+export const getMyVisits = (token) => {
+  return axios.get(`${API_URL}/my`, getConfig(token));
+};
+المهمة 3.5: تطوير شاشة بدء الزيارة (StartVisitScreen).
+الملف 1: mobile/dopamine-crm-mobile/src/screens/StartVisitScreen.js
+javascript
+// محتوى ملف: mobile/dopamine-crm-mobile/src/screens/StartVisitScreen.js
+
+import React, { useState, useEffect, useContext } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  Button,
+  ActivityIndicator,
+  Alert,
+} from "react-native";
+import * as Location from "expo-location";
+import { AuthContext } from "../context/AuthContext";
+import { startVisit } from "../api/visits";
+
+const StartVisitScreen = ({ route, navigation }) => {
+  const { client } = route.params; // العميل الذي سيتم زيارته
+  const { user } = useContext(AuthContext);
+
+  const [location, setLocation] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [isStarting, setIsStarting] = useState(false);
+  const [visitId, setVisitId] = useState(null);
+  const [timer, setTimer] = useState(0);
+
+  useEffect(() => {
+    (async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setErrorMsg("Permission to access location was denied");
+        return;
+      }
+
+      // يمكن إضافة منطق لمراقبة الموقع بشكل مستمر هنا
+    })();
+  }, []);
+
+  useEffect(() => {
+    let interval;
+    if (visitId) {
+      interval = setInterval(() => {
+        setTimer((prevTimer) => prevTimer + 1);
+      }, 1000);
+    } else if (!visitId && interval) {
+      clearInterval(interval);
+    }
+    return () => clearInterval(interval);
+  }, [visitId]);
+
+  const handleStartVisit = async () => {
+    setIsStarting(true);
+    setErrorMsg(null);
+
+    try {
+      let currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      // التحقق من دقة GPS (أقل من 10 أمتار)
+      if (currentLocation.coords.accuracy > 10) {
+        Alert.alert("Location Error", "GPS accuracy is not sufficient. Please try again in a better signal area.");
+        setIsStarting(false);
+        return;
+      }
+
+      const response = await startVisit(
+        client._id,
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude,
+        user.token
+      );
+      setVisitId(response.data._id);
+      setLocation(currentLocation);
+      Alert.alert("Visit Started", "Your visit has started successfully!");
+    } catch (err) {
+      setErrorMsg(err.response?.data?.message || "Failed to start visit");
+      Alert.alert("Error", err.response?.data?.message || "Failed to start visit");
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const handleEndVisit = () => {
+    if (timer < 300) { // 5 دقائق = 300 ثانية
+      Alert.alert("Visit Duration", "Visit must be at least 5 minutes long.");
+      return;
+    }
+    navigation.navigate("EndVisit", { visitId, client, timer });
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>Visit to {client.name}</Text>
+      {errorMsg && <Text style={styles.error}>{errorMsg}</Text>}
+
+      {!visitId ? (
+        <Button
+          title={isStarting ? "Starting Visit..." : "Start Visit"}
+          onPress={handleStartVisit}
+          disabled={isStarting}
+        />
+      ) : (
+        <View>
+          <Text style={styles.timer}>Time: {Math.floor(timer / 60)}:{("0" + (timer % 60)).slice(-2)}</Text>
+          <Button title="End Visit" onPress={handleEndVisit} />
+        </View>
+      )}
+
+      {isStarting && <ActivityIndicator size="large" color="#0000ff" />}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+  error: {
+    color: "red",
+    marginBottom: 10,
+  },
+  timer: {
+    fontSize: 36,
+    fontWeight: "bold",
+    marginVertical: 20,
+  },
+});
+
+export default StartVisitScreen;
+ملاحظة: ستحتاج إلى تثبيت مكتبة expo-location:
+bash
+# داخل مجلد mobile/dopamine-crm-mobile
+expo install expo-location
+المهمة 3.6: تطوير شاشة إنهاء الزيارة (EndVisitScreen).
+الملف 1: mobile/dopamine-crm-mobile/src/screens/EndVisitScreen.js
+javascript
+// محتوى ملف: mobile/dopamine-crm-mobile/src/screens/EndVisitScreen.js
+
+import React, { useState, useContext } from "react";
+import {
+  View,
+  Text,
+  TextInput,
+  Button,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+} from "react-native";
+import * as Location from "expo-location";
+import { AuthContext } from "../context/AuthContext";
+import { endVisit } from "../api/visits";
+
+const EndVisitScreen = ({ route, navigation }) => {
+  const { visitId, client, timer } = route.params;
+  const { user } = useContext(AuthContext);
+
+  const [notes, setNotes] = useState("");
+  const [visitResult, setVisitResult] = useState(""); // يمكن أن تكون قائمة منسدلة لاحقاً
+  const [isEnding, setIsEnding] = useState(false);
+
+  const handleEndVisit = async () => {
+    setIsEnding(true);
+    try {
+      let currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      });
+
+      // يمكن إضافة التحقق من دقة GPS هنا أيضاً
+
+      await endVisit(
+        visitId,
+        currentLocation.coords.latitude,
+        currentLocation.coords.longitude,
+        notes,
+        visitResult,
+        user.token
+      );
+      Alert.alert("Visit Ended", "Visit recorded successfully!");
+      navigation.popToTop(); // العودة إلى الشاشة الرئيسية
+    } catch (err) {
+      Alert.alert("Error", err.response?.data?.message || "Failed to end visit");
+    } finally {
+      setIsEnding(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>End Visit for {client.name}</Text>
+      <Text style={styles.duration}>Duration: {Math.floor(timer / 60)}:{("0" + (timer % 60)).slice(-2)}</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Visit Notes..."
+        multiline
+        numberOfLines={4}
+        value={notes}
+        onChangeText={setNotes}
+      />
+
+      <TextInput
+        style={styles.input}
+        placeholder="Visit Result (e.g., Success, Follow-up)"
+        value={visitResult}
+        onChangeText={setVisitResult}
+      />
+
+      <Button
+        title={isEnding ? "Ending Visit..." : "Save & End Visit"}
+        onPress={handleEndVisit}
+        disabled={isEnding}
+      />
+      {isEnding && <ActivityIndicator size="large" color="#0000ff" />}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    padding: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 10,
+  },
+  duration: {
+    fontSize: 18,
+    marginBottom: 20,
+  },
+  input: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    padding: 10,
+    marginBottom: 10,
+    borderRadius: 5,
+  },
+});
+
+export default EndVisitScreen;
+المهمة 3.7: تحديث App.js في تطبيق الموبايل لدمج مسارات الزيارات.
+الملف 1: mobile/dopamine-crm-mobile/App.js (بعد التحديث)
+javascript
+// محتوى ملف: mobile/dopamine-crm-mobile/App.js
+
+import React, { useContext } from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createStackNavigator } from "@react-navigation/stack";
+import { AuthProvider, AuthContext } from "./src/context/AuthContext";
+import LoginScreen from "./src/screens/LoginScreen";
+import HomeScreen from "./src/screens/HomeScreen";
+import StartVisitScreen from "./src/screens/StartVisitScreen"; // استيراد
+import EndVisitScreen from "./src/screens/EndVisitScreen"; // استيراد
+import { ActivityIndicator, View, StyleSheet } from "react-native";
+
+const Stack = createStackNavigator();
+
+const AppNavigator = () => {
+  const { user, isLoading } = useContext(AuthContext);
+
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
+
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {user ? (
+        <Stack.Group>
+          <Stack.Screen name="Home" component={HomeScreen} />
+          <Stack.Screen name="StartVisit" component={StartVisitScreen} />
+          <Stack.Screen name="EndVisit" component={EndVisitScreen} />
+          {/* يمكن إضافة شاشات أخرى هنا */}
+        </Stack.Group>
+      ) : (
+        <Stack.Screen name="Login" component={LoginScreen} />
+      )}
+    </Stack.Navigator>
+  );
+};
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <NavigationContainer>
+        <AppNavigator />
+      </NavigationContainer>
+    </AuthProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+});
+الخطوات التالية:
+لقد قمت الآن بتزويدك بالهياكل البرمجية الأساسية ومقتطفات الكود لوحدة إدارة الزيارات الميدانية في الواجهة الخلفية وتطبيق الموبايل.
+لجعل هذا يعمل، ستحتاج إلى:
+تحديث ملف .env في مجلد backend بمعلومات اتصال MongoDB Atlas الصحيحة ومفتاح JWT_SECRET.
+تشغيل الواجهة الخلفية: cd backend && npm start.
+تشغيل تطبيق الموبايل: cd mobile/dopamine-crm-mobile && npm start.
+للاختبار:
+سجل الدخول إلى تطبيق الموبايل بحساب مندوب.
+ستحتاج إلى إضافة عملاء في الواجهة الخلفية (عبر API أو من خلال واجهة الويب الإدارية التي قدمت كودها سابقاً) وتعيينهم للمندوب.
+يمكنك بعد ذلك محاكاة زيارة عميل من تطبيق الموبايل.
