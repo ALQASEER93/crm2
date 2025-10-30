@@ -1,2 +1,3 @@
 # Frontend
-This directory will hold the React web application.
+
+This directory includes a very small React setup. Open `index.html` in a browser to view the page.
