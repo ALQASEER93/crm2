@@ -1,11 +1,12 @@
 const express = require('express');
-const { Op, ValidationError, UniqueConstraintError } = require('sequelize');
+const { ValidationError, UniqueConstraintError } = require('sequelize');
 const Hcp = require('../models/hcp');
 
 const router = express.Router();
 
 const normalizeRecord = record => ({
   name: typeof record.name === 'string' ? record.name.trim() : record.name,
+  areaTag: typeof record.areaTag === 'string' ? record.areaTag.trim() : record.areaTag,
   specialty: typeof record.specialty === 'string' ? record.specialty.trim() : record.specialty,
   phone: typeof record.phone === 'string' ? record.phone.trim() || null : record.phone,
   email: typeof record.email === 'string' ? record.email.trim().toLowerCase() || null : record.email,
@@ -16,12 +17,8 @@ const isValidRecord = record => {
     return false;
   }
 
-  const { name, specialty, phone, email } = record;
-  if (!name || !specialty) {
-    return false;
-  }
-
-  if (!phone && !email) {
+  const { name, areaTag, specialty } = record;
+  if (!name || !areaTag || !specialty) {
     return false;
   }
 
@@ -29,25 +26,11 @@ const isValidRecord = record => {
 };
 
 const buildLookup = record => {
-  const conditions = [];
-  if (record.email) {
-    conditions.push({ email: record.email });
-  }
-  if (record.phone) {
-    conditions.push({ phone: record.phone });
-  }
-  if (record.name) {
-    conditions.push({ name: record.name });
-  }
-  if (record.specialty) {
-    conditions.push({ specialty: record.specialty });
-  }
-
-  if (conditions.length === 0) {
+  if (!record.name || !record.areaTag) {
     return null;
   }
 
-  return { [Op.or]: conditions };
+  return { name: record.name, areaTag: record.areaTag };
 };
 
 router.post('/hcps', async (req, res, next) => {

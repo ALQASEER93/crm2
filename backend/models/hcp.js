@@ -10,7 +10,13 @@ const Hcp = sequelize.define('Hcp', {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
+    validate: {
+      notEmpty: true,
+    },
+  },
+  areaTag: {
+    type: DataTypes.STRING,
+    allowNull: false,
     validate: {
       notEmpty: true,
     },
@@ -18,7 +24,6 @@ const Hcp = sequelize.define('Hcp', {
   specialty: {
     type: DataTypes.STRING,
     allowNull: false,
-    unique: true,
     validate: {
       notEmpty: true,
     },
@@ -26,12 +31,10 @@ const Hcp = sequelize.define('Hcp', {
   phone: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true,
   },
   email: {
     type: DataTypes.STRING,
     allowNull: true,
-    unique: true,
     validate: {
       isEmail: true,
     },
@@ -39,6 +42,12 @@ const Hcp = sequelize.define('Hcp', {
 }, {
   tableName: 'hcps',
   underscored: true,
+  indexes: [
+    {
+      unique: true,
+      fields: ['name', 'area_tag'],
+    },
+  ],
 });
 
 module.exports = Hcp;

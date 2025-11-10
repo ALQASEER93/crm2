@@ -7,109 +7,130 @@ describe('HCP import API', () => {
     await ready;
   });
 
-  it('imports new HCP records and exposes them via GET /api/hcps', async () => {
+  it('imports a new HCP using the name + area tag composite key', async () => {
     const payload = {
       records: [
         {
-          name: 'Dr. Meredith Grey',
-          specialty: 'General Surgery',
-          phone: '555-0001',
-          email: 'meredith.grey@example.com',
-        },
-        {
-          name: 'Dr. Derek Shepherd',
-          specialty: 'Neurosurgery',
-          phone: '555-0002',
-          email: 'derek.shepherd@example.com',
+          name: 'Dr. Cristina Yang',
+          areaTag: 'Seattle Grace - Cardio',
+          specialty: 'Cardiothoracic Surgery',
         },
       ],
     };
 
-    const importResponse = await request(app)
+    const response = await request(app)
       .post('/api/import/hcps')
       .send(payload)
       .expect(200);
 
-    expect(importResponse.body).toMatchObject({
-      created: 2,
+    expect(response.body).toMatchObject({
+      created: 1,
       updated: 0,
       rejected: 0,
-      total: 2,
+      total: 1,
     });
 
-    const listResponse = await request(app).get('/api/hcps').expect(200);
-
-    expect(listResponse.body).toEqual([
-      expect.objectContaining({
-        name: 'Dr. Derek Shepherd',
-        specialty: 'Neurosurgery',
-        phone: '555-0002',
-        email: 'derek.shepherd@example.com',
-      }),
-      expect.objectContaining({
-        name: 'Dr. Meredith Grey',
-        specialty: 'General Surgery',
-        phone: '555-0001',
-        email: 'meredith.grey@example.com',
-      }),
-    ]);
+    const stored = await Hcp.findOne({
+      where: { name: 'Dr. Cristina Yang', areaTag: 'Seattle Grace - Cardio' },
+    });
+    expect(stored).toBeTruthy();
+    expect(stored.specialty).toBe('Cardiothoracic Surgery');
+    expect(stored.phone).toBeNull();
+    expect(stored.email).toBeNull();
   });
 
-  it('updates existing records when imported again', async () => {
-    await Hcp.bulkCreate([
-      {
-        name: 'Dr. Miranda Bailey',
-        specialty: 'General Surgery',
-        phone: '555-1000',
-        email: 'miranda.bailey@example.com',
-      },
-    ]);
+  it('counts a re-import of the same row as an update', async () => {
+    const record = {
+      name: 'Dr. Addison Montgomery',
+      areaTag: 'Seattle Grace - OB',
+      specialty: 'Neonatal Surgery',
+    };
 
-    const importResponse = await request(app)
+    await request(app)
       .post('/api/import/hcps')
-      .send({
-        records: [
-          {
-            name: 'Dr. Miranda Bailey',
-            specialty: 'General Surgery',
-            phone: '555-1111',
-            email: 'miranda.bailey@example.com',
-          },
-          {
-            name: 'Dr. Richard Webber',
-            specialty: 'General Surgery Chief',
-            phone: '555-2222',
-            email: 'richard.webber@example.com',
-          },
-        ],
-      })
+      .send({ records: [record] })
       .expect(200);
 
-    expect(importResponse.body).toMatchObject({
-      created: 1,
-      updated: 1,
-      rejected: 0,
-      total: 2,
-    });
-
-    const hcp = await Hcp.findOne({ where: { name: 'Dr. Miranda Bailey' } });
-    expect(hcp.phone).toBe('555-1111');
-  });
-
-  it('rejects invalid records but continues processing others', async () => {
     const response = await request(app)
       .post('/api/import/hcps')
       .send({
         records: [
           {
-            name: 'Dr. Amelia Shepherd',
-            specialty: 'Neurosurgery',
-            phone: '555-3333',
-            email: 'amelia.shepherd@example.com',
+            ...record,
+            specialty: 'Maternal-Fetal Medicine',
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(response.body).toMatchObject({
+      created: 0,
+      updated: 1,
+      rejected: 0,
+      total: 1,
+    });
+
+    const updated = await Hcp.findOne({
+      where: { name: 'Dr. Addison Montgomery', areaTag: 'Seattle Grace - OB' },
+    });
+    expect(updated.specialty).toBe('Maternal-Fetal Medicine');
+  });
+
+  it('does not merge HCPs that only share a specialty', async () => {
+    await request(app)
+      .post('/api/import/hcps')
+      .send({
+        records: [
+          {
+            name: 'Dr. Owen Hunt',
+            areaTag: 'Seattle Grace - Trauma',
+            specialty: 'Cardiology',
+          },
+        ],
+      })
+      .expect(200);
+
+    const secondResponse = await request(app)
+      .post('/api/import/hcps')
+      .send({
+        records: [
+          {
+            name: 'Dr. Teddy Altman',
+            areaTag: 'Seattle Grace - Cardio',
+            specialty: 'Cardiology',
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(secondResponse.body).toMatchObject({
+      created: 1,
+      updated: 0,
+      rejected: 0,
+      total: 1,
+    });
+
+    const all = await Hcp.findAll({ order: [['name', 'ASC']] });
+    expect(all).toHaveLength(2);
+    expect(all.map(hcp => `${hcp.name}:${hcp.areaTag}`)).toEqual([
+      'Dr. Owen Hunt:Seattle Grace - Trauma',
+      'Dr. Teddy Altman:Seattle Grace - Cardio',
+    ]);
+  });
+
+  it('rejects records that are missing required composite key fields', async () => {
+    const response = await request(app)
+      .post('/api/import/hcps')
+      .send({
+        records: [
+          {
+            name: 'Dr. Arizona Robbins',
+            specialty: 'Pediatric Surgery',
           },
           {
-            specialty: 'Cardiology',
-            phone: '555-4444',
+            name: 'Dr. Mark Sloan',
+            areaTag: 'Seattle Grace - Plastics',
+            specialty: 'Plastic Surgery',
           },
         ],
       })
@@ -122,8 +143,8 @@ describe('HCP import API', () => {
       total: 2,
     });
 
-    const listResponse = await request(app).get('/api/hcps').expect(200);
-    expect(listResponse.body).toHaveLength(1);
-    expect(listResponse.body[0].name).toBe('Dr. Amelia Shepherd');
+    const stored = await Hcp.findAll();
+    expect(stored).toHaveLength(1);
+    expect(stored[0].name).toBe('Dr. Mark Sloan');
   });
 });
