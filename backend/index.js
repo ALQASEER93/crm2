@@ -1,6 +1,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 
+const { initDb } = require('./db');
+const hcpsRouter = require('./routes/hcps');
+const importRouter = require('./routes/import');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -40,14 +44,25 @@ const healthHandler = (_req, res) => {
 
 app.post('/api/auth/login', loginHandler);
 app.get('/api/health', healthHandler);
+app.use('/api/hcps', hcpsRouter);
+app.use('/api/import', importRouter);
+
+const ready = initDb();
 
 if (require.main === module) {
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  ready
+    .then(() => {
+      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    })
+    .catch(error => {
+      console.error('Failed to initialize database:', error);
+      process.exit(1);
+    });
 }
 
 module.exports = {
   app,
   loginHandler,
-  healthHandler
+  healthHandler,
+  ready,
 };
-
