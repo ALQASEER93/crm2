@@ -34,10 +34,16 @@ const sequelize = getSequelizeInstance();
 const db = { sequelize };
 module.exports = db;
 
+let models;
 const loadModels = () => {
   require('../models/role');
   require('../models/user');
   require('../models/hcp');
+  if (!models) {
+    models = require('../models');
+  }
+
+  return models;
 };
 
 const { seedUsersAndRoles } = require('./seed');
@@ -65,3 +71,9 @@ const resetDatabase = async () => {
 db.initDb = initDb;
 db.resetDatabase = resetDatabase;
 
+module.exports = {
+  sequelize,
+  initDb,
+  resetDatabase,
+  loadModels,
+};

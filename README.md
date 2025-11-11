@@ -22,7 +22,13 @@ This monorepo houses a lightweight CRM prototype composed of a Node.js/Express b
    npm test
    ```
 
-3. Start the API server. The service boots on port `5000` by default and automatically provisions the SQLite data directory (`../data/database.sqlite`).
+3. Seed the database with realistic territories, reps, HCPs, and visits. This is especially helpful for validating the dashboard visually:
+
+   ```bash
+   npm run seed
+   ```
+
+4. Start the API server. The service boots on port `5000` by default and automatically provisions the SQLite data directory (`../data/database.sqlite`).
 
    ```bash
    node index.js
@@ -34,6 +40,9 @@ Key routes include:
 
 - `POST /api/auth/login` – authenticate with one of the sample accounts below.
 - `GET /api/health` – quick readiness probe for monitoring and automated tests.
+- `GET /api/visits` – paginated visit listings with sorting, search, and filter support.
+- `GET /api/visits/summary` – aggregated metrics for summary cards.
+- `GET /api/visits/export` – CSV export that mirrors the filtered table view.
 
 ## Frontend: Install and Run
 
@@ -76,16 +85,13 @@ Refer to [`docs/README.md`](docs/README.md) for a full walkthrough of the filter
 
 ## Visits API Endpoints
 
-The Visits Dashboard is powered by the `/api/visits/*` endpoints. The detailed reference—including request parameters, sample responses, and CSV export headers—lives in [`docs/README.md`](docs/README.md).【F:docs/README.md†L5-L46】 Highlights include:
+The Visits Dashboard is powered by the `/api/visits/*` endpoints. The detailed reference—including request parameters, response examples, and CSV export headers—lives in [`docs/README.md`](docs/README.md).【F:docs/README.md†L5-L46】 Highlights include:
 
-- `GET /api/visits/summary`
-  - Returns aggregate visit metrics for the active filters so the dashboard can render summary cards and charts.
-  - Supports `startDate`, `endDate`, `repId`, `hcpId`, and `status` query parameters for granular filtering.
-- `GET /api/visits/export`
-  - Streams a CSV with the same filters applied to the dashboard table.
-  - Accepts the same query parameters as the summary endpoint plus `timezone` and `includeNotes` to customize exports.
+- `GET /api/visits` – Supports pagination (`page`, `pageSize`), sorting (`sortBy`, `sortDirection`), and filters (`status`, `repId`, `hcpId`, `territoryId`, `dateFrom`, `dateTo`, `q`). Responses follow a `{ data, meta }` convention.
+- `GET /api/visits/summary` – Re-uses the same filters and returns aggregate counts such as completed/scheduled visits, unique HCPs, and average duration.
+- `GET /api/visits/export` – Applies the current filters and returns a CSV attachment with visit, HCP, rep, territory, and notes columns.
 
-Use these endpoints in tandem with the seed scripts described in `docs/README.md` to populate visits data and validate the dashboard UX end-to-end.【F:docs/README.md†L34-L67】
+Seed data is available via `npm run seed`, which also demonstrates the new CSV dependency (`csv-stringify`) used by the export route.【F:backend/db/seed.js†L1-L69】【F:backend/package.json†L1-L27】
 
 ## Additional Resources
 

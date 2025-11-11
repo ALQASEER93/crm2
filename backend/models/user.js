@@ -29,11 +29,19 @@ const User = sequelize.define('User', {
       } else {
         this.setDataValue('email', value);
       }
+      isEmail: true,
+      notEmpty: true,
     },
   },
   passwordHash: {
     type: DataTypes.STRING,
     allowNull: false,
+    field: 'password_hash',
+  },
+  roleId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    field: 'role_id',
   },
 }, {
   tableName: 'users',
@@ -53,6 +61,10 @@ Role.hasMany(User, {
   as: 'users',
   foreignKey: 'roleId',
   onDelete: 'RESTRICT',
+  indexes: [
+    { unique: true, fields: ['email'] },
+    { fields: ['role_id'] },
+  ],
 });
 
 module.exports = User;

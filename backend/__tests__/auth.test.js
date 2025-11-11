@@ -1,8 +1,17 @@
 const request = require('supertest');
 const { app, ready } = require('..');
+const { resetDatabase } = require('../db');
+const { seedRoles } = require('../scripts/seedRoles');
+const { seedUsers } = require('../scripts/seedUsers');
 
 beforeAll(async () => {
   await ready;
+});
+
+beforeEach(async () => {
+  await resetDatabase();
+  await seedRoles();
+  await seedUsers();
 });
 
 describe('POST /api/auth/login', () => {
@@ -24,6 +33,10 @@ describe('POST /api/auth/login', () => {
           slug: 'admin',
         },
       },
+      id: expect.any(Number),
+      email: 'admin@example.com',
+      name: 'Admin User',
+      role: { id: expect.any(Number), name: 'admin' },
     });
   });
 

@@ -1,21 +1,43 @@
 # Frontend
 
-This directory currently exposes a minimal React entry point rendered via `src/index.js`. Until the full toolchain is wired up, you can work with the scaffold using the steps below.
+This package contains the CRM React application powered by [Vite](https://vitejs.dev/). The toolkit provides a fast dev server,
+modern build pipeline, and Vitest-based testing setup.
+
+## Prerequisites
+
+Install Node.js 18 or newer and npm.
 
 ## Install Dependencies
-
-While no runtime packages are required today, run `npm install` so lockfiles stay in sync once additional tooling (React Router, testing libraries, etc.) is introduced:
 
 ```bash
 cd frontend
 npm install
 ```
 
-## Start the UI
+This installs React, the Vite build tooling, ESLint/Prettier, and testing utilities.
 
-- **Quick preview:** open `index.html` in a browser to render the placeholder UI.
-- **Local static server:** alternatively, run `npx serve .` (or your preferred static host) from the `frontend/` directory and browse to the reported URL. Replace this step with your framework-specific dev server command when the project adopts one.
+## Available Scripts
 
-## Run Frontend Tests
+Run these commands from the `frontend/` directory:
 
-Once a test runner is configured, execute the suite with `npm test` from the `frontend/` directory. Update the `"test"` script in `package.json` to point to the actual command (for example, `react-scripts test` or `vitest run`).
+- `npm run dev` – start the Vite development server with hot module replacement.
+- `npm run build` – create an optimized production build in `dist/`.
+- `npm run preview` – serve the production build locally for verification.
+- `npm test` – execute the Vitest suite in watch mode (use `npm test -- --run` for a single run).
+- `npm run lint` – (optional) run ESLint using the provided configuration.
+
+## Project Structure
+
+```
+frontend/
+├── index.html          # Vite entry HTML
+├── src/
+│   ├── App.jsx         # Root application shell
+│   ├── main.jsx        # Vite React entry point
+│   ├── auth/           # Authentication context and utilities
+│   └── visits/         # Visits dashboard views and providers
+└── vite.config.js      # Shared Vite/Vitest configuration
+```
+
+Vitest loads `src/test/setup.js` to provide the DOM testing environment and custom matchers from
+`@testing-library/jest-dom`.

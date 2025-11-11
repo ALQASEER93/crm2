@@ -1,8 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { createRoot } from 'react-dom/client';
-import { AuthProvider, useAuth } from './auth/AuthContext';
-import { VisitsFilterProvider } from './visits/VisitsFilterContext';
-import VisitsDashboard from './visits/VisitsDashboard';
+import { useEffect, useMemo, useState } from 'react';
+import { AuthProvider, useAuth } from './auth/AuthContext.jsx';
+import { VisitsFilterProvider } from './visits/VisitsFilterContext.jsx';
+import VisitsDashboard from './visits/VisitsDashboard.jsx';
 
 const DEFAULT_FILTERS = {
   startDate: '',
@@ -12,12 +11,6 @@ const DEFAULT_FILTERS = {
   statuses: [],
   territory: '',
 };
-
-const container = document.getElementById('root');
-
-if (!container) {
-  throw new Error('Root container #root not found');
-}
 
 const App = () => (
   <AuthProvider>
@@ -208,5 +201,4 @@ const LoginScreen = () => {
   );
 };
 
-createRoot(container).render(<App />);
-
+export default App;

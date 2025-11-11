@@ -1,7 +1,7 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../db');
 
-const Role = sequelize.define('Role', {
+const SalesRep = sequelize.define('SalesRep', {
   id: {
     type: DataTypes.INTEGER,
     autoIncrement: true,
@@ -14,33 +14,25 @@ const Role = sequelize.define('Role', {
       notEmpty: true,
     },
   },
-  slug: {
+  email: {
     type: DataTypes.STRING,
-    allowNull: false,
-    unique: true,
-    validate: {
-      notEmpty: true,
-      isLowercase: true,
-    },
-  },
-}, {
-  tableName: 'roles',
-  underscored: true,
-    unique: true,
-    validate: {
-      notEmpty: true,
-    },
-  },
-  description: {
-    type: DataTypes.TEXT,
     allowNull: true,
+    validate: {
+      isEmail: true,
+    },
+  },
+  territoryId: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    field: 'territory_id',
   },
 }, {
-  tableName: 'roles',
+  tableName: 'sales_reps',
   underscored: true,
   indexes: [
-    { unique: true, fields: ['name'] },
+    { fields: ['name'] },
+    { fields: ['territory_id'] },
   ],
 });
 
-module.exports = Role;
+module.exports = SalesRep;
