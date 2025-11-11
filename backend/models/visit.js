@@ -61,6 +61,7 @@ const Visit = sequelize.define('Visit', {
     { fields: ['rep_id'] },
     { fields: ['hcp_id'] },
     { fields: ['territory_id'] },
+    { unique: true, fields: ['visit_date', 'rep_id', 'hcp_id'] },
   ],
 });
 

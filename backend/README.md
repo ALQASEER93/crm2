@@ -11,13 +11,22 @@ npm install
 npm test
 ```
 
-To populate realistic fixtures for the Visits dashboard, seed the database. The
-seed resets the SQLite tables and loads sample territories, sales reps, HCPs,
-and visits:
+### Database seeding
 
-```
-npm run seed
-```
+Seed scripts live under `backend/scripts/` and can target any SQLite database by
+setting the `SQLITE_STORAGE` environment variable (defaults to
+`../data/database.sqlite`). Run them in the following order when preparing a new
+environment:
+
+1. `npm run seed:roles` – Creates the default `admin`, `manager`, and `rep` roles.
+2. `npm run seed:users` – Inserts demo users with bcrypt-hashed passwords and
+   associates them with roles.
+3. `npm run seed:visits` – Upserts territories, sales reps, HCPs, and sample
+   visits that match the Visits dashboard.
+
+For convenience, `npm run seed:all` executes the full sequence, and the legacy
+`npm run seed` alias still populates the visit data only. Each script is
+idempotent and can be re-run safely (useful for CI or resetting a dev database).
 
 Start the development server on port `5000` (override via `PORT`):
 
@@ -27,7 +36,8 @@ node index.js
 
 ## Key Endpoints
 
-- `POST /api/auth/login` – Validates credentials against the in-memory admin user.
+- `POST /api/auth/login` – Validates credentials against the persisted `users`
+  table seeded via the scripts above and returns the associated role.
 - `GET /api/health` – Lightweight readiness probe.
 - `GET /api/hcps` – Lists HCP records ordered alphabetically.
 - `POST /api/import/hcps` – Bulk upsert HCP data.
