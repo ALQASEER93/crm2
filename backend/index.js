@@ -1,41 +1,33 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
-
 const { initDb } = require('./db');
 const hcpsRouter = require('./routes/hcps');
 const importRouter = require('./routes/import');
+const { authenticate, AuthenticationError } = require('./services/auth');
+const { requireAuth, requireRole } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 
-// In-memory user seed. Passwords are stored as hashes to avoid leaking
-// credentials when the data store is inspected or logged.
-const users = [
-  {
-    id: 1,
-    email: 'admin@example.com',
-    passwordHash: bcrypt.hashSync('password', 10),
-    name: 'Admin User'
-  }
-];
-
-const loginHandler = (req, res) => {
+const loginHandler = async (req, res, next) => {
   const { email, password } = req.body || {};
 
   if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
     return res.status(400).json({ message: 'Email and password are required.' });
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
-  const user = users.find(u => u.email.toLowerCase() === normalizedEmail);
+  try {
+    const { token, user } = await authenticate(email, password);
+    res.setHeader('X-Auth-Token', token);
+    return res.json({ user });
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
+    }
 
-  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-    return res.status(401).json({ message: 'Invalid email or password.' });
+    return next(error);
   }
-
-  return res.json({ id: user.id, email: user.email, name: user.name });
 };
 
 const healthHandler = (_req, res) => {
@@ -44,8 +36,9 @@ const healthHandler = (_req, res) => {
 
 app.post('/api/auth/login', loginHandler);
 app.get('/api/health', healthHandler);
-app.use('/api/hcps', hcpsRouter);
-app.use('/api/import', importRouter);
+app.use('/api/hcps', requireAuth, requireRole(['admin', 'manager', 'rep']), hcpsRouter);
+app.use('/api/import', requireAuth, requireRole(['admin']), importRouter);
+app.use('/api/visits', requireAuth);
 
 const ready = initDb();
 

@@ -31,10 +31,16 @@ const getSequelizeInstance = () => {
 };
 
 const sequelize = getSequelizeInstance();
+const db = { sequelize };
+module.exports = db;
 
 const loadModels = () => {
+  require('../models/role');
+  require('../models/user');
   require('../models/hcp');
 };
+
+const { seedUsersAndRoles } = require('./seed');
 
 let initializationPromise;
 const initDb = async () => {
@@ -43,6 +49,7 @@ const initDb = async () => {
       loadModels();
       await sequelize.authenticate();
       await sequelize.sync();
+      await seedUsersAndRoles();
     })();
   }
 
@@ -52,10 +59,9 @@ const initDb = async () => {
 const resetDatabase = async () => {
   loadModels();
   await sequelize.sync({ force: true });
+  await seedUsersAndRoles();
 };
 
-module.exports = {
-  sequelize,
-  initDb,
-  resetDatabase,
-};
+db.initDb = initDb;
+db.resetDatabase = resetDatabase;
+
