@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const { initDb } = require('./db');
 const hcpsRouter = require('./routes/hcps');
 const importRouter = require('./routes/import');
+const visitsRouter = require('./routes/visits');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -46,6 +47,7 @@ app.post('/api/auth/login', loginHandler);
 app.get('/api/health', healthHandler);
 app.use('/api/hcps', hcpsRouter);
 app.use('/api/import', importRouter);
+app.use('/api/visits', visitsRouter);
 
 const ready = initDb();
 
