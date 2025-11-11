@@ -32,8 +32,13 @@ const getSequelizeInstance = () => {
 
 const sequelize = getSequelizeInstance();
 
+let models;
 const loadModels = () => {
-  require('../models/hcp');
+  if (!models) {
+    models = require('../models');
+  }
+
+  return models;
 };
 
 let initializationPromise;
@@ -58,4 +63,5 @@ module.exports = {
   sequelize,
   initDb,
   resetDatabase,
+  loadModels,
 };

@@ -2,67 +2,106 @@
 
 ## Visits API
 
-### `/api/visits/summary`
-- **Method:** `GET`
-- **Description:** Returns aggregate visit metrics for the given filters so dashboards can render summary cards and charts.
+### `GET /api/visits`
+- **Description:** Returns paginated visit rows with nested HCP, sales rep, and territory metadata. Designed for the dashboard table view.
 - **Query Parameters:**
-  - `startDate` (ISO 8601 date string, optional) – Lower bound for the visit start timestamp. Defaults to the beginning of the current quarter when omitted.
-  - `endDate` (ISO 8601 date string, optional) – Upper bound for the visit start timestamp. Defaults to the end of the current quarter when omitted.
-  - `repId` (string, optional) – Restrict results to a single sales representative. Multiple representatives can be requested by repeating the parameter (e.g. `repId=1&repId=2`).
-  - `hcpId` (string, optional) – Restrict results to visits involving a specific HCP.
-  - `status` (string, optional) – Filter by visit status (`scheduled`, `in_progress`, `completed`, or `cancelled`). Multiple statuses can be supplied.
+  - `page` (integer, optional) – Defaults to `1`.
+  - `pageSize` (integer, optional) – Defaults to `25`, maximum `100`.
+  - `sortBy` (string, optional) – `visitDate`, `status`, `durationMinutes`, `hcpName`, `repName`, or `territoryName`. Defaults to `visitDate`.
+  - `sortDirection` (string, optional) – `asc` or `desc`. Defaults to `desc`.
+  - `status` (string or comma-delimited list, optional) – Any combination of `scheduled`, `completed`, `cancelled`.
+  - `repId`, `hcpId`, `territoryId` (string or comma-delimited list, optional) – Filter by related identifiers.
+  - `dateFrom`, `dateTo` (ISO `YYYY-MM-DD`, optional) – Inclusive visit date range.
+  - `q` (string, optional) – Case-insensitive search across HCP name/area tag, rep name, and territory name.
 - **Sample Response:**
 ```json
 {
-  "totalVisits": 128,
-  "completed": 96,
-  "scheduled": 18,
-  "inProgress": 6,
-  "cancelled": 8,
-  "averageDurationMinutes": 32,
-  "hcpCoverage": {
-    "uniqueHcps": 54,
-    "repeatVisits": 22
-  },
-  "byRep": [
-    { "repId": "rep-001", "repName": "Jordan Smith", "completed": 28, "scheduled": 5 },
-    { "repId": "rep-014", "repName": "Devon Allen", "completed": 24, "scheduled": 4 }
-  ]
+  "data": [
+    {
+      "id": 12,
+      "visitDate": "2024-05-10",
+      "status": "completed",
+      "durationMinutes": 45,
+      "notes": "Discussed performance metrics.",
+      "rep": { "id": 2, "name": "Meredith Grey", "email": "meredith.grey@example.com" },
+      "hcp": { "id": 7, "name": "Dr. Cristina Yang", "areaTag": "Seattle Grace - Cardio", "specialty": "Cardiothoracic Surgery" },
+      "territory": { "id": 1, "name": "Northwest", "code": "NW" },
+      "createdAt": "2024-05-01T16:18:09.000Z",
+      "updatedAt": "2024-05-01T16:18:09.000Z"
+    }
+  ],
+  "meta": {
+    "page": 1,
+    "pageSize": 25,
+    "total": 42,
+    "totalPages": 2,
+    "sortBy": "visitDate",
+    "sortDirection": "desc",
+    "filters": {
+      "status": ["completed"],
+      "repId": null,
+      "hcpId": null,
+      "territoryId": null,
+      "dateFrom": "2024-05-01",
+      "dateTo": "2024-05-31",
+      "q": null
+    }
+  }
 }
 ```
 
-### `/api/visits/export`
-- **Method:** `GET`
-- **Description:** Streams a CSV export that mirrors the table contents rendered on the Visits Dashboard. The export respects all filters so QA can download the exact dataset shown in the UI.
-- **Query Parameters:** Identical to `/api/visits/summary` with the addition of:
-  - `timezone` (IANA timezone string, optional) – Converts date columns before export. Defaults to `UTC`.
-  - `includeNotes` (boolean, optional) – When `true`, appends internal visit notes as an extra column. Defaults to `false` to keep files compact.
+### `GET /api/visits/summary`
+- **Description:** Returns aggregate metrics for the active visit filters so the dashboard can drive summary cards and charts.
+- **Query Parameters:** Same as `GET /api/visits`.
+- **Sample Response:**
+```json
+{
+  "data": {
+    "totalVisits": 42,
+    "completedVisits": 31,
+    "scheduledVisits": 8,
+    "cancelledVisits": 3,
+    "uniqueHcps": 18,
+    "uniqueReps": 6,
+    "uniqueTerritories": 4,
+    "averageDurationMinutes": 37.5,
+    "totalDurationMinutes": 1575,
+    "lastVisitDate": "2024-05-11"
+  }
+}
+```
+
+### `GET /api/visits/export`
+- **Description:** Streams the filtered visits list as a CSV download. The export contains the same columns shown in the dashboard table and respects all filters/sorting.
+- **Query Parameters:** Same as `GET /api/visits`.
 - **Sample Response Headers:**
   - `Content-Type: text/csv`
-  - `Content-Disposition: attachment; filename="visits-2024-04-01_2024-06-30.csv"`
+  - `Content-Disposition: attachment; filename="visits.csv"`
 - **Sample CSV Body:**
 ```csv
-Visit ID,Date,Representative,HCP,Status,Duration (minutes)
-VIS-10023,2024-05-01T14:30:00-04:00,Jordan Smith,Dr. Helena Ortiz,Completed,42
-VIS-10024,2024-05-01T16:00:00-04:00,Jordan Smith,Dr. Rachel Huang,Scheduled,
-VIS-10025,2024-05-02T09:00:00-04:00,Devon Allen,Dr. Julia Karim,Completed,28
+ID,Visit Date,Status,Duration (minutes),Sales Rep,Sales Rep Email,HCP,HCP Area Tag,Territory,Territory Code,Notes
+12,2024-05-10,completed,45,Meredith Grey,meredith.grey@example.com,Dr. Cristina Yang,Seattle Grace - Cardio,Northwest,NW,"Discussed performance metrics."
+15,2024-05-08,scheduled,30,Miranda Bailey,miranda.bailey@example.com,Dr. Arizona Robbins,Seattle Grace - Peds,Midwest,MW,"Discuss pediatric pilot program."
 ```
 
 ## Visits Dashboard Walkthrough
 
 The Visits Dashboard gives managers and operations teams a consolidated view of field activity.
 
-- **Filters Panel:** Located above the summary cards. Users can filter by date range (pre-sets for week, month, quarter), representative, HCP, visit status, and territory. Changing filters immediately re-queries both the summary endpoint and the table list.
-- **Summary Cards:** Four cards highlight Total Visits, Completed Visits, Scheduled Visits, and Average Duration. Counts update as filters change and use color coding to show positive/negative deltas week-over-week.
+- **Filters Panel:** Located above the summary cards. Users can filter by date range, representative, HCP, visit status, and territory. Changing filters immediately re-queries both the summary endpoint and the table list.
+- **Summary Cards:** Highlight Total Visits, Completed Visits, Scheduled Visits, Cancelled Visits, Average Duration, and coverage counts. Counts update as filters change and use color coding to show deltas week-over-week.
 - **Visits Table:** Displays individual visits with sortable columns for visit date, rep, HCP, status, and duration. Pagination defaults to 25 rows per page, with controls to switch between 25/50/100 rows. The current page, total rows, and applied filters are displayed beneath the table for quick QA references.
 - **CSV Export Button:** A primary button at the top-right of the table triggers `/api/visits/export` with the current filter state. The UI disables the button while a download is in progress and surfaces toast notifications if the API responds with an error.
 
 ## Setup and Seeding
 
-1. Ensure the backend database has the latest migrations applied (run `npm run migrate` from `backend/` if you have pending schema changes).
-2. Seed baseline roles and users so QA can log in with representative and manager personas:
-   - `npm run seed:roles` – Inserts the `sales_rep` and `sales_manager` roles used by the dashboard authorization checks.
-   - `npm run seed:users` – Creates sample accounts (`rep@example.com`, `manager@example.com`) with the password `Password123!` mapped to the roles above.
-3. Populate visit fixtures with `npm run seed:visits` to exercise the summary and export endpoints during manual testing.
-4. Start the backend with `npm start` inside `backend/` and the frontend with `npm start` inside `frontend/`. Once both services are running, sign in as either seeded user to reach the Visits Dashboard via the main navigation.
-
+1. Install backend dependencies and run the test suite from `backend/`:
+   ```bash
+   npm install
+   npm test
+   ```
+2. Populate the SQLite database with sample territories, reps, HCPs, and visits:
+   ```bash
+   npm run seed
+   ```
+3. Start the backend with `node index.js` and bring up the frontend (static HTML or your React dev server). Sign in with the admin account (`admin@example.com` / `password`) to navigate to the Visits Dashboard and verify the data set.
