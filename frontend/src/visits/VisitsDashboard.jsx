@@ -132,15 +132,12 @@ const VisitsDashboard = () => {
 
   useEffect(() => {
     if (role === 'sales_rep' && user?.id) {
-      setFilters(prev => {
-        const repId = String(user.id);
-        if (Array.isArray(prev.repIds) && prev.repIds.length === 1 && prev.repIds[0] === repId) {
-          return prev;
-        }
-        return { ...prev, repIds: [repId] };
-      });
+      const repId = String(user.id);
+      if (!Array.isArray(filters.repIds) || filters.repIds.length !== 1 || filters.repIds[0] !== repId) {
+        setFilters(prev => ({ ...prev, repIds: [repId] }));
+      }
     }
-  }, [role, setFilters, user]);
+  }, [filters.repIds, role, setFilters, user]);
 
   useEffect(() => {
     setPage(1);
