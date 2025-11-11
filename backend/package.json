@@ -23,3 +23,8 @@
     "supertest": "^7.1.1"
   }
 }
+{
+  "scripts": {
+    "seed:visits": "node db/seedVisits.js"
+  }
+}
