@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useVisitsFilters } from './VisitsFilterContext';
 
