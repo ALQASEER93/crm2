@@ -4,8 +4,12 @@
   "description": "This directory will contain the Node.js/Express backend.",
   "main": "index.js",
   "scripts": {
-    "test": "jest",
-    "seed": "node db/seed.js"
+    "test": "jest --runInBand",
+    "seed": "node db/seed.js",
+    "seed:roles": "node scripts/seedRoles.js",
+    "seed:users": "node scripts/seedUsers.js",
+    "seed:visits": "node scripts/seedVisits.js",
+    "seed:all": "npm run seed:roles && npm run seed:users && npm run seed:visits"
   },
   "keywords": [],
   "author": "",

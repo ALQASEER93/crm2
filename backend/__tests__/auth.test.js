@@ -1,5 +1,18 @@
 const request = require('supertest');
-const { app } = require('..');
+const { app, ready } = require('..');
+const { resetDatabase } = require('../db');
+const { seedRoles } = require('../scripts/seedRoles');
+const { seedUsers } = require('../scripts/seedUsers');
+
+beforeAll(async () => {
+  await ready;
+});
+
+beforeEach(async () => {
+  await resetDatabase();
+  await seedRoles();
+  await seedUsers();
+});
 
 describe('POST /api/auth/login', () => {
   it('authenticates valid credentials', async () => {
@@ -9,9 +22,10 @@ describe('POST /api/auth/login', () => {
       .expect(200);
 
     expect(response.body).toEqual({
-      id: 1,
+      id: expect.any(Number),
       email: 'admin@example.com',
       name: 'Admin User',
+      role: { id: expect.any(Number), name: 'admin' },
     });
   });
 
