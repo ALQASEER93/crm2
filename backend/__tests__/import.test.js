@@ -3,8 +3,51 @@ const { app, ready } = require('..');
 const Hcp = require('../models/hcp');
 
 describe('HCP import API', () => {
+  let adminToken;
+  let repToken;
+
   beforeAll(async () => {
     await ready;
+    const adminLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'admin@example.com', password: 'password' })
+      .expect(200);
+
+    adminToken = adminLogin.headers['x-auth-token'];
+
+    const repLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'rep@example.com', password: 'password' })
+      .expect(200);
+
+    repToken = repLogin.headers['x-auth-token'];
+  });
+
+  it('requires authentication', async () => {
+    const response = await request(app)
+      .post('/api/import/hcps')
+      .send({ records: [] })
+      .expect(401);
+
+    expect(response.body).toEqual({ message: 'Authentication token missing.' });
+  });
+
+  it('rejects insufficient roles', async () => {
+    const response = await request(app)
+      .post('/api/import/hcps')
+      .set('X-Auth-Token', repToken)
+      .send({
+        records: [
+          {
+            name: 'Unauthorized Attempt',
+            areaTag: 'Test',
+            specialty: 'Testing',
+          },
+        ],
+      })
+      .expect(403);
+
+    expect(response.body).toEqual({ message: 'Insufficient permissions.' });
   });
 
   it('imports a new HCP using the name + area tag composite key', async () => {
@@ -20,6 +63,7 @@ describe('HCP import API', () => {
 
     const response = await request(app)
       .post('/api/import/hcps')
+      .set('X-Auth-Token', adminToken)
       .send(payload)
       .expect(200);
 
@@ -48,11 +92,13 @@ describe('HCP import API', () => {
 
     await request(app)
       .post('/api/import/hcps')
+      .set('X-Auth-Token', adminToken)
       .send({ records: [record] })
       .expect(200);
 
     const response = await request(app)
       .post('/api/import/hcps')
+      .set('X-Auth-Token', adminToken)
       .send({
         records: [
           {
@@ -79,6 +125,7 @@ describe('HCP import API', () => {
   it('does not merge HCPs that only share a specialty', async () => {
     await request(app)
       .post('/api/import/hcps')
+      .set('X-Auth-Token', adminToken)
       .send({
         records: [
           {
@@ -92,6 +139,7 @@ describe('HCP import API', () => {
 
     const secondResponse = await request(app)
       .post('/api/import/hcps')
+      .set('X-Auth-Token', adminToken)
       .send({
         records: [
           {
@@ -121,6 +169,7 @@ describe('HCP import API', () => {
   it('rejects records that are missing required composite key fields', async () => {
     const response = await request(app)
       .post('/api/import/hcps')
+      .set('X-Auth-Token', adminToken)
       .send({
         records: [
           {

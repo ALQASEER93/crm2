@@ -10,6 +10,22 @@ const Role = sequelize.define('Role', {
   name: {
     type: DataTypes.STRING,
     allowNull: false,
+    validate: {
+      notEmpty: true,
+    },
+  },
+  slug: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    unique: true,
+    validate: {
+      notEmpty: true,
+      isLowercase: true,
+    },
+  },
+}, {
+  tableName: 'roles',
+  underscored: true,
     unique: true,
     validate: {
       notEmpty: true,

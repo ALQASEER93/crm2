@@ -21,7 +21,18 @@ describe('POST /api/auth/login', () => {
       .send({ email: 'admin@example.com', password: 'password' })
       .expect(200);
 
+    expect(response.headers['x-auth-token']).toBeTruthy();
     expect(response.body).toEqual({
+      user: {
+        id: expect.any(Number),
+        email: 'admin@example.com',
+        name: 'Admin User',
+        role: {
+          id: expect.any(Number),
+          name: 'Administrator',
+          slug: 'admin',
+        },
+      },
       id: expect.any(Number),
       email: 'admin@example.com',
       name: 'Admin User',
@@ -45,6 +56,7 @@ describe('POST /api/auth/login', () => {
       .expect(401);
 
     expect(response.body).toEqual({ message: 'Invalid email or password.' });
+    expect(response.headers['x-auth-token']).toBeUndefined();
   });
 });
 

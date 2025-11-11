@@ -1,5 +1,6 @@
 const { DataTypes } = require('sequelize');
 const { sequelize } = require('../db');
+const Role = require('./role');
 
 const User = sequelize.define('User', {
   id: {
@@ -19,6 +20,15 @@ const User = sequelize.define('User', {
     allowNull: false,
     unique: true,
     validate: {
+      notEmpty: true,
+      isEmail: true,
+    },
+    set(value) {
+      if (typeof value === 'string') {
+        this.setDataValue('email', value.trim().toLowerCase());
+      } else {
+        this.setDataValue('email', value);
+      }
       isEmail: true,
       notEmpty: true,
     },
@@ -36,6 +46,21 @@ const User = sequelize.define('User', {
 }, {
   tableName: 'users',
   underscored: true,
+});
+
+User.belongsTo(Role, {
+  as: 'role',
+  foreignKey: {
+    name: 'roleId',
+    allowNull: false,
+  },
+  onDelete: 'RESTRICT',
+});
+
+Role.hasMany(User, {
+  as: 'users',
+  foreignKey: 'roleId',
+  onDelete: 'RESTRICT',
   indexes: [
     { unique: true, fields: ['email'] },
     { fields: ['role_id'] },
