@@ -1,9 +1,8 @@
 const express = require('express');
 const { initDb } = require('./db');
-const { User, Role } = require('./models');
 const hcpsRouter = require('./routes/hcps');
 const importRouter = require('./routes/import');
-const { authenticate, AuthenticationError } = require('./services/auth');
+const { authenticate, AuthenticationError, refreshToken } = require('./services/auth');
 const { requireAuth, requireRole } = require('./middleware/auth');
 const visitsRouter = require('./routes/visits');
 
@@ -12,8 +11,21 @@ const PORT = process.env.PORT || 5000;
 
 app.use(express.json());
 
+const buildAuthResponse = (user) => ({
+  user,
+  id: user.id,
+  email: user.email,
+  name: user.name,
+  role: user.role
+    ? {
+        id: user.role.id,
+        name: user.role.slug,
+      }
+    : null,
+});
+
+// Authenticates credentials and responds with a JWT via `X-Auth-Token`.
 const loginHandler = async (req, res, next) => {
-const loginHandler = async (req, res) => {
   const { email, password } = req.body || {};
 
   if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
@@ -23,35 +35,24 @@ const loginHandler = async (req, res) => {
   try {
     const { token, user } = await authenticate(email, password);
     res.setHeader('X-Auth-Token', token);
-    return res.json({ user });
+    return res.json(buildAuthResponse(user));
   } catch (error) {
     if (error instanceof AuthenticationError) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
 
     return next(error);
-  const normalizedEmail = email.trim().toLowerCase();
-  try {
-    await ready;
-    const user = await User.findOne({
-      where: { email: normalizedEmail },
-      include: [{ model: Role, as: 'role' }],
-    });
-
-    if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
-    }
-
-    return res.json({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role ? { id: user.role.id, name: user.role.name } : null,
-    });
-  } catch (error) {
-    console.error('Failed to authenticate user:', error);
-    return res.status(500).json({ message: 'Unable to authenticate user right now.' });
   }
+};
+
+const meHandler = (req, res) => {
+  return res.json(buildAuthResponse(req.user));
+};
+
+const refreshHandler = async (req, res) => {
+  const { token, user } = await refreshToken(req.authToken);
+  res.setHeader('X-Auth-Token', token);
+  return res.json(buildAuthResponse(user));
 };
 
 const healthHandler = (_req, res) => {
@@ -59,16 +60,21 @@ const healthHandler = (_req, res) => {
 };
 
 app.post('/api/auth/login', (req, res, next) => {
-  Promise.resolve(loginHandler(req, res)).catch(next);
+  Promise.resolve(loginHandler(req, res, next)).catch(next);
 });
+app.get('/api/auth/me', requireAuth, (req, res) => {
+  return meHandler(req, res);
+});
+app.post('/api/auth/refresh', requireAuth, (req, res, next) => {
+  Promise.resolve(refreshHandler(req, res, next)).catch(next);
+});
+// Health and primary functional routers assume authentication middleware ran above.
 app.get('/api/health', healthHandler);
 app.use('/api/hcps', requireAuth, requireRole(['admin', 'manager', 'rep']), hcpsRouter);
 app.use('/api/import', requireAuth, requireRole(['admin']), importRouter);
-app.use('/api/visits', requireAuth);
-app.use('/api/hcps', hcpsRouter);
-app.use('/api/import', importRouter);
-app.use('/api/visits', visitsRouter);
+app.use('/api/visits', requireAuth, visitsRouter);
 
+// Initialize the database once; routers can rely on `ready` when needed for testing.
 const ready = initDb();
 
 if (require.main === module) {

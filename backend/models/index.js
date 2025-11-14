@@ -1,30 +1,19 @@
-const Hcp = require('./hcp');
-const Territory = require('./territory');
-const SalesRep = require('./salesRep');
-const Visit = require('./visit');
 const Role = require('./role');
 const User = require('./user');
+const Hcp = require('./hcp');
+const SalesRep = require('./salesRep');
+const Territory = require('./territory');
+const Visit = require('./visit');
 
-Hcp.hasMany(Visit, { foreignKey: 'hcpId', as: 'visits' });
-Visit.belongsTo(Hcp, { foreignKey: 'hcpId', as: 'hcp' });
-
-Territory.hasMany(Visit, { foreignKey: 'territoryId', as: 'visits' });
-Visit.belongsTo(Territory, { foreignKey: 'territoryId', as: 'territory' });
-
-SalesRep.hasMany(Visit, { foreignKey: 'repId', as: 'visits' });
-Visit.belongsTo(SalesRep, { foreignKey: 'repId', as: 'rep' });
-
-Territory.hasMany(SalesRep, { foreignKey: 'territoryId', as: 'reps' });
-SalesRep.belongsTo(Territory, { foreignKey: 'territoryId', as: 'territory' });
-
-Role.hasMany(User, { foreignKey: 'roleId', as: 'users' });
-User.belongsTo(Role, { foreignKey: 'roleId', as: 'role' });
+Visit.belongsTo(Hcp, { foreignKey: 'hcp_id', as: 'hcp' });
+Visit.belongsTo(SalesRep, { foreignKey: 'rep_id', as: 'rep' });
+Visit.belongsTo(Territory, { foreignKey: 'territory_id', as: 'territory' });
 
 module.exports = {
-  Hcp,
-  Territory,
-  SalesRep,
-  Visit,
   Role,
   User,
+  Hcp,
+  SalesRep,
+  Territory,
+  Visit,
 };

@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const Role = require('../models/role');
@@ -27,7 +28,16 @@ const issueToken = user => {
     role: user.role?.slug,
   };
 
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN,
+    jwtid: crypto.randomBytes(8).toString('hex'),
+  });
+};
+
+const refreshToken = async token => {
+  const user = await verifyToken(token);
+  const newToken = issueToken(user);
+  return { token: newToken, user };
 };
 
 const authenticate = async (email, password) => {
@@ -81,5 +91,6 @@ module.exports = {
   authenticate,
   issueToken,
   verifyToken,
+  refreshToken,
   AuthenticationError,
 };

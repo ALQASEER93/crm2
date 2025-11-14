@@ -1,11 +1,11 @@
+// backend/db/seed.js
 const bcrypt = require('bcryptjs');
-const Role = require('../models/role');
-const User = require('../models/user');
+const { Role, User } = require('../models');
 
 const DEFAULT_ROLES = [
-  { slug: 'admin', name: 'Administrator' },
-  { slug: 'manager', name: 'Manager' },
-  { slug: 'rep', name: 'Sales Representative' },
+  { slug: 'admin', name: 'Administrator', description: 'Full access' },
+  { slug: 'manager', name: 'Sales manager', description: 'Manages reps' },
+  { slug: 'rep', name: 'Sales representative', description: 'Field rep' },
 ];
 
 const DEFAULT_USERS = [
@@ -16,7 +16,7 @@ const DEFAULT_USERS = [
     role: 'admin',
   },
   {
-    name: 'Manager User',
+    name: 'Sales Manager',
     email: 'manager@example.com',
     password: 'password',
     role: 'manager',
@@ -29,27 +29,35 @@ const DEFAULT_USERS = [
   },
 ];
 
-const seedUsersAndRoles = async () => {
+async function seedUsersAndRoles() {
+  // نتأكد أن الموديلات متحمّلة
+  if (!Role || !User) {
+    throw new Error('Role or User model not loaded');
+  }
+
   const rolesBySlug = {};
 
+  // 1) زرع/تحديث الأدوار
   for (const roleData of DEFAULT_ROLES) {
-    const [role] = await Role.findOrCreate({
-      where: { slug: roleData.slug },
-      defaults: roleData,
-    });
+    const [role] = await Role.upsert(
+      {
+        slug: roleData.slug,
+        name: roleData.name,
+        description: roleData.description || null,
+      },
+      { returning: true },
+    );
     rolesBySlug[role.slug] = role;
   }
 
+  // 2) زرع/تحديث المستخدمين
   for (const userData of DEFAULT_USERS) {
     const role = rolesBySlug[userData.role];
-    if (!role) {
-      // Should never happen, but guard against inconsistent seed config.
-      // eslint-disable-next-line no-continue
-      continue;
-    }
+    if (!role) continue;
 
     const passwordHash = await bcrypt.hash(userData.password, 10);
-    const [user, created] = await User.findOrCreate({
+
+    await User.findOrCreate({
       where: { email: userData.email },
       defaults: {
         name: userData.name,
@@ -58,35 +66,10 @@ const seedUsersAndRoles = async () => {
         roleId: role.id,
       },
     });
-
-    if (!created) {
-      const updates = {
-        name: userData.name,
-        roleId: role.id,
-      };
-
-      if (user.passwordHash !== passwordHash) {
-        updates.passwordHash = passwordHash;
-      }
-
-      await user.update(updates);
-    }
   }
-};
 
-module.exports = { seedUsersAndRoles };
-const { seedVisits } = require('../scripts/seedVisits');
-
-module.exports = seedVisits;
-
-if (require.main === module) {
-  seedVisits()
-    .then(result => {
-      console.log(`Seeded visits. ${result.inserted} new row(s) added.`);
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('Failed to seed visits:', error);
-      process.exit(1);
-    });
+  console.log('✅ Seeded default roles & users');
 }
+
+// مهم: نُصدّرها كـ property بهذا الشكل تماماً
+module.exports = { seedUsersAndRoles };

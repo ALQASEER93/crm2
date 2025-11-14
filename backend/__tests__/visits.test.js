@@ -3,6 +3,15 @@ const { app, ready } = require('..');
 const { resetDatabase } = require('../db');
 const { Hcp, Territory, SalesRep, Visit } = require('../models');
 
+const loginAsAdmin = async () => {
+  const response = await request(app)
+    .post('/api/auth/login')
+    .send({ email: 'admin@example.com', password: 'password' })
+    .expect(200);
+
+  return response.headers['x-auth-token'];
+};
+
 const createFixtureData = async () => {
   const [north, south] = await Territory.bulkCreate([
     { name: 'North Territory', code: 'N' },
@@ -69,6 +78,7 @@ const createFixtureData = async () => {
 
 describe('Visits API', () => {
   let fixtures;
+  let authToken;
 
   beforeAll(async () => {
     await ready;
@@ -77,11 +87,13 @@ describe('Visits API', () => {
   beforeEach(async () => {
     await resetDatabase();
     fixtures = await createFixtureData();
+    authToken = await loginAsAdmin();
   });
 
   it('returns paginated visits ordered by latest visit date by default', async () => {
     const response = await request(app)
       .get('/api/visits?page=1&pageSize=2')
+      .set('X-Auth-Token', authToken)
       .expect(200);
 
     expect(response.body.data).toHaveLength(2);
@@ -100,6 +112,7 @@ describe('Visits API', () => {
   it('filters visits by status and territory', async () => {
     const response = await request(app)
       .get(`/api/visits?status=completed&territoryId=${fixtures.territories.north.id}`)
+      .set('X-Auth-Token', authToken)
       .expect(200);
 
     expect(response.body.data).toHaveLength(2);
@@ -113,6 +126,7 @@ describe('Visits API', () => {
   it('sorts visits by duration when requested', async () => {
     const response = await request(app)
       .get('/api/visits?sortBy=durationMinutes&sortDirection=asc&pageSize=5')
+      .set('X-Auth-Token', authToken)
       .expect(200);
 
     const durations = response.body.data.map(visit => visit.durationMinutes);
@@ -122,6 +136,7 @@ describe('Visits API', () => {
   it('provides aggregate summary data', async () => {
     const response = await request(app)
       .get('/api/visits/summary?status=completed')
+      .set('X-Auth-Token', authToken)
       .expect(200);
 
     expect(response.body.data).toMatchObject({
@@ -139,6 +154,7 @@ describe('Visits API', () => {
   it('exports visits as CSV with the expected headers', async () => {
     const response = await request(app)
       .get(`/api/visits/export?repId=${fixtures.reps.repOne.id}`)
+      .set('X-Auth-Token', authToken)
       .expect(200);
 
     expect(response.headers['content-type']).toContain('text/csv');
@@ -151,6 +167,7 @@ describe('Visits API', () => {
   it('returns a validation error for invalid pagination input', async () => {
     const response = await request(app)
       .get('/api/visits?page=0')
+      .set('X-Auth-Token', authToken)
       .expect(400);
 
     expect(response.body).toMatchObject({

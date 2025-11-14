@@ -4,6 +4,34 @@ const { resetDatabase } = require('../db');
 const { seedRoles } = require('../scripts/seedRoles');
 const { seedUsers } = require('../scripts/seedUsers');
 
+const loginAsAdmin = async () => {
+  const response = await request(app)
+    .post('/api/auth/login')
+    .send({ email: 'admin@example.com', password: 'password' })
+    .expect(200);
+
+  return response.headers['x-auth-token'];
+};
+
+const expectAuthPayload = body => {
+  expect(body).toEqual({
+    user: {
+      id: expect.any(Number),
+      email: 'admin@example.com',
+      name: 'Admin User',
+      role: {
+        id: expect.any(Number),
+        name: 'Administrator',
+        slug: 'admin',
+      },
+    },
+    id: expect.any(Number),
+    email: 'admin@example.com',
+    name: 'Admin User',
+    role: { id: expect.any(Number), name: 'admin' },
+  });
+};
+
 beforeAll(async () => {
   await ready;
 });
@@ -64,5 +92,31 @@ describe('GET /api/health', () => {
   it('returns an ok status', async () => {
     const response = await request(app).get('/api/health').expect(200);
     expect(response.body).toEqual({ status: 'ok' });
+  });
+});
+
+describe('Authenticated auth endpoints', () => {
+  it('returns the current user on /api/auth/me', async () => {
+    const token = await loginAsAdmin();
+
+    const response = await request(app)
+      .get('/api/auth/me')
+      .set('X-Auth-Token', token)
+      .expect(200);
+
+    expectAuthPayload(response.body);
+  });
+
+  it('refreshes the token and returns the current user', async () => {
+    const token = await loginAsAdmin();
+
+    const response = await request(app)
+      .post('/api/auth/refresh')
+      .set('X-Auth-Token', token)
+      .expect(200);
+
+    expect(response.headers['x-auth-token']).toBeTruthy();
+    expect(response.headers['x-auth-token']).not.toEqual(token);
+    expectAuthPayload(response.body);
   });
 });

@@ -39,7 +39,7 @@ describe('seed scripts', () => {
     };
 
     expect(countsAfterFirstRun.roles).toBe(3);
-    expect(countsAfterFirstRun.users).toBe(5);
+    expect(countsAfterFirstRun.users).toBe(6);
     expect(countsAfterFirstRun.territories).toBe(sampleData.territories.length);
     expect(countsAfterFirstRun.salesReps).toBe(sampleData.salesReps.length);
     expect(countsAfterFirstRun.hcps).toBe(sampleData.hcps.length);
@@ -47,7 +47,7 @@ describe('seed scripts', () => {
 
     const adminUser = await User.findOne({ where: { email: 'admin@example.com' }, include: [{ model: Role, as: 'role' }] });
     expect(adminUser).toBeTruthy();
-    expect(adminUser.role.name).toBe('admin');
+    expect(adminUser.role.slug).toBe('admin');
     expect(await bcrypt.compare('password', adminUser.passwordHash)).toBe(true);
 
     await runAllSeeds();

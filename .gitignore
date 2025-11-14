@@ -4,3 +4,13 @@ build/
 dist/
 .DS_Store
 npm-debug.log*
+.aider*
+# Local AI / tooling
+.agent/
+.codex/
+
+# Local data
+data/
+
+# Frontend env (NEVER commit)
+frontend/.env.local
