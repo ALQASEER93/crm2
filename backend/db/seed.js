@@ -4,8 +4,21 @@ const { Role, User } = require('../models');
 
 const DEFAULT_ROLES = [
   { slug: 'admin', name: 'Administrator', description: 'Full access' },
-  { slug: 'manager', name: 'Sales manager', description: 'Manages reps' },
-  { slug: 'rep', name: 'Sales representative', description: 'Field rep' },
+  {
+    slug: 'sales-marketing-manager',
+    name: 'Sales & Marketing Manager',
+    description: 'Manages field reps and sales teams.',
+  },
+  {
+    slug: 'medical-sales-rep',
+    name: 'Medical Sales Representative',
+    description: 'Handles HCP and clinical visits.',
+  },
+  {
+    slug: 'salesman',
+    name: 'Salesman',
+    description: 'Focused on pharmacy accounts and retail coverage.',
+  },
 ];
 
 const DEFAULT_USERS = [
@@ -16,16 +29,22 @@ const DEFAULT_USERS = [
     role: 'admin',
   },
   {
-    name: 'Sales Manager',
+    name: 'Sales & Marketing Manager',
     email: 'manager@example.com',
     password: 'password',
-    role: 'manager',
+    role: 'sales-marketing-manager',
   },
   {
-    name: 'Sales Rep',
+    name: 'Medical Rep',
     email: 'rep@example.com',
     password: 'password',
-    role: 'rep',
+    role: 'medical-sales-rep',
+  },
+  {
+    name: 'Retail Salesman',
+    email: 'salesman@example.com',
+    password: 'password',
+    role: 'salesman',
   },
 ];
 

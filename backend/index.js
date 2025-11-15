@@ -5,6 +5,8 @@ const importRouter = require('./routes/import');
 const { authenticate, AuthenticationError, refreshToken } = require('./services/auth');
 const { requireAuth, requireRole } = require('./middleware/auth');
 const visitsRouter = require('./routes/visits');
+const reportsRouter = require('./routes/reports');
+const pharmaciesRouter = require('./routes/pharmacies');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -70,9 +72,16 @@ app.post('/api/auth/refresh', requireAuth, (req, res, next) => {
 });
 // Health and primary functional routers assume authentication middleware ran above.
 app.get('/api/health', healthHandler);
-app.use('/api/hcps', requireAuth, requireRole(['admin', 'manager', 'rep']), hcpsRouter);
+app.use(
+  '/api/hcps',
+  requireAuth,
+  requireRole(['admin', 'sales-marketing-manager', 'medical-sales-rep', 'salesman']),
+  hcpsRouter,
+);
 app.use('/api/import', requireAuth, requireRole(['admin']), importRouter);
 app.use('/api/visits', requireAuth, visitsRouter);
+app.use('/api/reports', requireAuth, reportsRouter);
+app.use('/api/pharmacies', requireAuth, requireRole(['admin', 'sales-marketing-manager', 'salesman']), pharmaciesRouter);
 
 // Initialize the database once; routers can rely on `ready` when needed for testing.
 const ready = initDb();

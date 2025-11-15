@@ -38,8 +38,8 @@ describe('seed scripts', () => {
       visits: await Visit.count(),
     };
 
-    expect(countsAfterFirstRun.roles).toBe(3);
-    expect(countsAfterFirstRun.users).toBe(6);
+    expect(countsAfterFirstRun.roles).toBe(4);
+    expect(countsAfterFirstRun.users).toBe(7);
     expect(countsAfterFirstRun.territories).toBe(sampleData.territories.length);
     expect(countsAfterFirstRun.salesReps).toBe(sampleData.salesReps.length);
     expect(countsAfterFirstRun.hcps).toBe(sampleData.hcps.length);

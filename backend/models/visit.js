@@ -48,6 +48,12 @@ const Visit = sequelize.define('Visit', {
     allowNull: false,
     field: 'territory_id',
   },
+  isDeleted: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: false,
+    field: 'is_deleted',
+  },
   notes: {
     type: DataTypes.TEXT,
     allowNull: true,

@@ -60,8 +60,12 @@ const parseIntegerList = value => {
 };
 
 const buildWhereClause = filters => {
-  const where = {};
+  const where = { isDeleted: false };
   const andConditions = [];
+
+  if (filters.includeDeleted) {
+    delete where.isDeleted;
+  }
 
   if (filters.status) {
     const statuses = normalizeArray(filters.status);
@@ -341,12 +345,43 @@ const exportVisits = async params => {
   return csv;
 };
 
+const findVisitById = async id => {
+  const parsedId = Number.parseInt(id, 10);
+  if (!Number.isInteger(parsedId)) {
+    return null;
+  }
+
+  return Visit.findByPk(parsedId, {
+    include: baseInclude,
+  });
+};
+
+const createVisit = async payload => {
+  const visit = await Visit.create(payload);
+  await visit.reload({ include: baseInclude });
+  return serializeVisit(visit);
+};
+
+const updateVisit = async (visit, payload) => {
+  await visit.update(payload);
+  await visit.reload({ include: baseInclude });
+  return serializeVisit(visit);
+};
+
+const softDeleteVisit = async visit => {
+  await visit.update({ isDeleted: true });
+};
+
 module.exports = {
   listVisits,
   summarizeVisits,
   exportVisits,
   serializeVisit,
   buildWhereClause,
+  findVisitById,
+  createVisit,
+  updateVisit,
+  softDeleteVisit,
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,

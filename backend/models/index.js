@@ -4,6 +4,7 @@ const Hcp = require('./hcp');
 const SalesRep = require('./salesRep');
 const Territory = require('./territory');
 const Visit = require('./visit');
+const Pharmacy = require('./pharmacy');
 
 Visit.belongsTo(Hcp, { foreignKey: 'hcp_id', as: 'hcp' });
 Visit.belongsTo(SalesRep, { foreignKey: 'rep_id', as: 'rep' });
@@ -16,4 +17,5 @@ module.exports = {
   SalesRep,
   Territory,
   Visit,
+  Pharmacy,
 };

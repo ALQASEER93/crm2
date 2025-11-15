@@ -8,7 +8,11 @@ const normalizeRecord = record => ({
   name: typeof record.name === 'string' ? record.name.trim() : record.name,
   areaTag: typeof record.areaTag === 'string' ? record.areaTag.trim() : record.areaTag,
   specialty: typeof record.specialty === 'string' ? record.specialty.trim() : record.specialty,
+  city: typeof record.city === 'string' ? record.city.trim() || null : record.city,
+  area: typeof record.area === 'string' ? record.area.trim() || null : record.area,
+  segment: typeof record.segment === 'string' ? record.segment.trim() || null : record.segment,
   phone: typeof record.phone === 'string' ? record.phone.trim() || null : record.phone,
+  mobile: typeof record.mobile === 'string' ? record.mobile.trim() || null : record.mobile,
   email: typeof record.email === 'string' ? record.email.trim().toLowerCase() || null : record.email,
 });
 
