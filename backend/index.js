@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const { initDb } = require('./db');
 const hcpsRouter = require('./routes/hcps');
 const importRouter = require('./routes/import');
@@ -7,10 +8,21 @@ const { requireAuth, requireRole } = require('./middleware/auth');
 const visitsRouter = require('./routes/visits');
 const reportsRouter = require('./routes/reports');
 const pharmaciesRouter = require('./routes/pharmacies');
+const salesRepsRouter = require('./routes/salesReps');
+const territoriesRouter = require('./routes/territories');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+
+app.use(
+  cors({
+    origin: allowedOrigin,
+    credentials: true,
+    exposedHeaders: ['X-Auth-Token'],
+  }),
+);
 app.use(express.json());
 
 const buildAuthResponse = (user) => ({
@@ -21,7 +33,8 @@ const buildAuthResponse = (user) => ({
   role: user.role
     ? {
         id: user.role.id,
-        name: user.role.slug,
+        name: user.role.name,
+        slug: user.role.slug,
       }
     : null,
 });
@@ -75,13 +88,20 @@ app.get('/api/health', healthHandler);
 app.use(
   '/api/hcps',
   requireAuth,
-  requireRole(['admin', 'sales-marketing-manager', 'medical-sales-rep', 'salesman']),
+  requireRole(['sales_manager', 'sales_rep']),
   hcpsRouter,
 );
-app.use('/api/import', requireAuth, requireRole(['admin']), importRouter);
+app.use('/api/import', requireAuth, requireRole(['sales_manager']), importRouter);
 app.use('/api/visits', requireAuth, visitsRouter);
 app.use('/api/reports', requireAuth, reportsRouter);
-app.use('/api/pharmacies', requireAuth, requireRole(['admin', 'sales-marketing-manager', 'salesman']), pharmaciesRouter);
+app.use(
+  '/api/pharmacies',
+  requireAuth,
+  requireRole(['sales_manager', 'sales_rep']),
+  pharmaciesRouter,
+);
+app.use('/api/sales-reps', requireAuth, requireRole(['sales_manager', 'sales_rep']), salesRepsRouter);
+app.use('/api/territories', requireAuth, requireRole(['sales_manager', 'sales_rep']), territoriesRouter);
 
 // Initialize the database once; routers can rely on `ready` when needed for testing.
 const ready = initDb();

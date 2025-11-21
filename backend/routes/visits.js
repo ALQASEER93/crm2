@@ -18,7 +18,7 @@ const {
 
 const router = express.Router();
 
-const REP_SCOPED_ROLES = new Set(['medical-sales-rep', 'salesman']);
+const REP_SCOPED_ROLES = new Set(['sales_rep', 'medical-sales-rep', 'salesman']);
 
 const normalizeToArray = value => {
   if (Array.isArray(value)) {
@@ -178,9 +178,17 @@ const validateVisitPayload = (payload, { partial = false, requireRepId = true } 
   }
 
   if (!partial || payload.hcpId !== undefined) {
-    const hcpId = parsePositiveInteger(payload.hcpId, 'hcpId', errors, { required: !partial });
+    const hcpId = parsePositiveInteger(payload.hcpId, 'hcpId', errors, { required: false });
     if (hcpId !== undefined) {
       data.hcpId = hcpId;
+      hasUpdates = true;
+    }
+  }
+
+  if (!partial || payload.pharmacyId !== undefined) {
+    const pharmacyId = parsePositiveInteger(payload.pharmacyId, 'pharmacyId', errors, { required: false });
+    if (pharmacyId !== undefined) {
+      data.pharmacyId = pharmacyId;
       hasUpdates = true;
     }
   }
@@ -199,6 +207,116 @@ const validateVisitPayload = (payload, { partial = false, requireRepId = true } 
     } else {
       data.notes = normalizeNotes(payload.notes);
       hasUpdates = true;
+    }
+  }
+
+  if (!partial || payload.accountType !== undefined) {
+    if (payload.accountType === undefined || payload.accountType === null || !String(payload.accountType).trim()) {
+      // optional when partial, but if explicitly null/empty treat as clearing
+      if (!partial) {
+        data.accountType = null;
+        hasUpdates = true;
+      }
+    } else if (!Visit.ALLOWED_ACCOUNT_TYPES.includes(payload.accountType)) {
+      errors.push(`accountType must be one of: ${Visit.ALLOWED_ACCOUNT_TYPES.join(', ')}`);
+    } else {
+      data.accountType = payload.accountType;
+      hasUpdates = true;
+    }
+  }
+
+  if (!partial || payload.visitPurpose !== undefined) {
+    if (payload.visitPurpose === undefined || payload.visitPurpose === null || !String(payload.visitPurpose).trim()) {
+      if (!partial) {
+        data.visitPurpose = null;
+        hasUpdates = true;
+      }
+    } else if (!Visit.ALLOWED_PURPOSES.includes(payload.visitPurpose)) {
+      errors.push(`visitPurpose must be one of: ${Visit.ALLOWED_PURPOSES.join(', ')}`);
+    } else {
+      data.visitPurpose = payload.visitPurpose;
+      hasUpdates = true;
+    }
+  }
+
+  if (!partial || payload.visitChannel !== undefined) {
+    if (payload.visitChannel === undefined || payload.visitChannel === null || !String(payload.visitChannel).trim()) {
+      if (!partial) {
+        data.visitChannel = null;
+        hasUpdates = true;
+      }
+    } else if (!Visit.ALLOWED_CHANNELS.includes(payload.visitChannel)) {
+      errors.push(`visitChannel must be one of: ${Visit.ALLOWED_CHANNELS.join(', ')}`);
+    } else {
+      data.visitChannel = payload.visitChannel;
+      hasUpdates = true;
+    }
+  }
+
+  if (payload.products !== undefined) {
+    if (payload.products === null) {
+      data.productsJson = null;
+      hasUpdates = true;
+    } else if (!Array.isArray(payload.products)) {
+      errors.push('products must be an array when provided.');
+    } else {
+      try {
+        data.productsJson = JSON.stringify(payload.products);
+        hasUpdates = true;
+      } catch (_error) {
+        errors.push('products could not be serialized.');
+      }
+    }
+  }
+
+  if (payload.commitmentText !== undefined) {
+    if (payload.commitmentText !== null && typeof payload.commitmentText !== 'string') {
+      errors.push('commitmentText must be a string.');
+    } else {
+      data.commitmentText = normalizeNotes(payload.commitmentText);
+      hasUpdates = true;
+    }
+  }
+
+  if (payload.nextVisitDate !== undefined) {
+    if (payload.nextVisitDate === null || payload.nextVisitDate === '') {
+      data.nextVisitDate = null;
+      hasUpdates = true;
+    } else if (!isValidDate(payload.nextVisitDate)) {
+      errors.push('nextVisitDate must be a valid ISO-8601 date string.');
+    } else {
+      data.nextVisitDate = toDateOnly(payload.nextVisitDate);
+      hasUpdates = true;
+    }
+  }
+
+  if (payload.orderValueJOD !== undefined) {
+    if (payload.orderValueJOD === null || payload.orderValueJOD === '') {
+      data.orderValueJOD = null;
+      hasUpdates = true;
+    } else {
+      const numeric = Number(payload.orderValueJOD);
+      if (!Number.isFinite(numeric) || numeric < 0) {
+        errors.push('orderValueJOD must be a non-negative number.');
+      } else {
+        data.orderValueJOD = numeric;
+        hasUpdates = true;
+      }
+    }
+  }
+
+  if (payload.rating !== undefined) {
+    if (payload.rating === null || payload.rating === '') {
+      data.rating = null;
+      hasUpdates = true;
+    } else {
+      const parsed = Number.parseInt(payload.rating, 10);
+      if (!Number.isInteger(parsed) || parsed < 1 || parsed > 5) {
+        errors.push('rating must be an integer between 1 and 5.');
+      } else {
+        data.rating = parsed;
+        hasUpdates = true;
+      }
     }
   }
 
@@ -224,6 +342,17 @@ const ensureReferencesExist = async data => {
       Hcp.findByPk(data.hcpId).then(hcp => {
         if (!hcp) {
           errors.push('hcpId must reference an existing HCP.');
+        }
+      }),
+    );
+  }
+
+  if (data.pharmacyId !== undefined) {
+    const Pharmacy = require('../models/pharmacy');
+    lookups.push(
+      Pharmacy.findByPk(data.pharmacyId).then(pharmacy => {
+        if (!pharmacy) {
+          errors.push('pharmacyId must reference an existing Pharmacy.');
         }
       }),
     );
@@ -427,7 +556,12 @@ router.get('/export', async (req, res, next) => {
   }
 });
 
-router.post('/', async (req, res, next) => {
+router.get('/latest', async (req, res, next) => {
+  const { params, errors } = parseListQuery(req.query || {});
+  if (errors.length) {
+    return res.status(400).json({ message: 'Invalid query parameters.', errors });
+  }
+
   let repContext;
   try {
     repContext = await resolveRepForUser(req.user);
@@ -435,7 +569,89 @@ router.post('/', async (req, res, next) => {
     return res.status(403).json({ message: 'Insufficient permissions.' });
   }
 
-  const { data, errors } = validateVisitPayload(req.body || {}, { partial: false, requireRepId: !repContext });
+  if (repContext) {
+    params.repId = [repContext.id];
+  }
+
+  params.page = 1;
+  params.pageSize = Math.min(params.pageSize || 5, 25);
+  params.sortBy = 'visitDate';
+  params.sortDirection = 'desc';
+
+  try {
+    const result = await listVisits(params);
+    res.json(result);
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/', async (req, res, next) => {
+  const roleSlug = req.user?.role?.slug;
+  if (!roleSlug || !REP_SCOPED_ROLES.has(roleSlug)) {
+    return res.status(403).json({ message: 'Only reps can create visits.' });
+  }
+
+  let repContext;
+  try {
+    repContext = await resolveRepForUser(req.user);
+  } catch (error) {
+    return res.status(403).json({ message: 'Insufficient permissions.' });
+  }
+
+  const payload = { ...(req.body || {}) };
+
+  if (payload.accountType && payload.accountId) {
+    if (payload.accountType === 'hcp') {
+      payload.hcpId = payload.accountId;
+      payload.pharmacyId = undefined;
+    } else if (payload.accountType === 'pharmacy') {
+      payload.pharmacyId = payload.accountId;
+      payload.hcpId = undefined;
+    }
+  }
+
+  if (!payload.territoryId && repContext && repContext.territoryId) {
+    payload.territoryId = repContext.territoryId;
+  }
+
+  const { data, errors } = validateVisitPayload(payload, { partial: false, requireRepId: !repContext });
+
+  if (req.body && typeof req.body === 'object') {
+    try {
+      const { startLocation, endLocation } = req.body;
+
+      if (startLocation && typeof startLocation === 'object') {
+        const { lat, lng, accuracy } = startLocation;
+
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          data.startLat = lat;
+          data.startLng = lng;
+
+          if (typeof accuracy === 'number') {
+            data.startAccuracy = accuracy;
+          }
+        }
+      }
+
+      if (endLocation && typeof endLocation === 'object') {
+        const { lat, lng, accuracy } = endLocation;
+
+        if (typeof lat === 'number' && typeof lng === 'number') {
+          data.endLat = lat;
+          data.endLng = lng;
+
+          if (typeof accuracy === 'number') {
+            data.endAccuracy = accuracy;
+          }
+        }
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('Error while mapping GPS fields:', err);
+      // لا نمنع إنشاء الزيارة بسبب GPS فقط
+    }
+  }
 
   if (repContext) {
     if (data.repId !== undefined && data.repId !== repContext.id) {

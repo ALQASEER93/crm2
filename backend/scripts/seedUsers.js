@@ -8,37 +8,13 @@ const users = [
     name: 'Admin User',
     email: 'admin@example.com',
     password: 'password',
-    roleSlug: 'admin',
+    roleSlug: 'sales_manager',
   },
   {
-    name: 'Regional Manager',
-    email: 'manager@example.com',
+    name: 'Medical Rep',
+    email: 'rep@example.com',
     password: 'password',
-    roleSlug: 'sales-marketing-manager',
-  },
-  {
-    name: 'Meredith Grey',
-    email: 'meredith.grey@example.com',
-    password: 'password',
-    roleSlug: 'medical-sales-rep',
-  },
-  {
-    name: 'Derek Shepherd',
-    email: 'derek.shepherd@example.com',
-    password: 'password',
-    roleSlug: 'medical-sales-rep',
-  },
-  {
-    name: 'Miranda Bailey',
-    email: 'miranda.bailey@example.com',
-    password: 'password',
-    roleSlug: 'medical-sales-rep',
-  },
-  {
-    name: 'Retail Salesman',
-    email: 'salesman@example.com',
-    password: 'password',
-    roleSlug: 'salesman',
+    roleSlug: 'sales_rep',
   },
 ];
 

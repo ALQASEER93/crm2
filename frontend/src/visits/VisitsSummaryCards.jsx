@@ -7,20 +7,19 @@ const CARD_CONFIG = [
     emphasisColor: '#3f83f8',
   },
   {
-    key: 'completed',
+    key: 'completedVisits',
     label: 'Completed Visits',
     emphasisColor: '#0e9f6e',
   },
   {
-    key: 'scheduled',
+    key: 'scheduledVisits',
     label: 'Scheduled Visits',
     emphasisColor: '#f6ad55',
   },
   {
-    key: 'averageDurationMinutes',
-    label: 'Average Duration',
-    emphasisColor: '#7c3aed',
-    formatter: value => (value != null ? `${value} min` : '—'),
+    key: 'cancelledVisits',
+    label: 'Cancelled Visits',
+    emphasisColor: '#c53030',
   },
 ];
 
@@ -110,4 +109,5 @@ const VisitsSummaryCards = ({ summary, isLoading, error }) => {
 };
 
 export default VisitsSummaryCards;
+
 

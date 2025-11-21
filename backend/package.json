@@ -8,6 +8,10 @@
     "start": "node index.js",
     "seed:roles": "node scripts/seedRoles.js",
     "seed:users": "node scripts/seedUsers.js",
+    "seed:visits": "node scripts/seedVisits.js",
+    "convert:accounts": "node scripts/convertAccountsFromExcel.js",
+    "seed:accounts": "node scripts/seedAccounts.js",
+    "import:accounts": "node scripts/importAccountsFromExcel.js",
     "test": "jest"
   },
   "dependencies": {

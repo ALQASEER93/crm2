@@ -2,21 +2,15 @@ const { initDb, sequelize } = require('../db');
 const { Role } = require('../models');
 
 const roles = [
-  { slug: 'admin', name: 'Administrator', description: 'System administrator with full access.' },
   {
-    slug: 'sales-marketing-manager',
-    name: 'Sales & Marketing Manager',
+    slug: 'sales_manager',
+    name: 'Sales Manager',
     description: 'Regional manager with visibility across teams.',
   },
   {
-    slug: 'medical-sales-rep',
-    name: 'Medical Sales Representative',
-    description: 'Handles HCP and medical visits with access to their own accounts.',
-  },
-  {
-    slug: 'salesman',
-    name: 'Salesman',
-    description: 'Retail-focused sales covering pharmacies and trade customers.',
+    slug: 'sales_rep',
+    name: 'Sales Representative',
+    description: 'Handles assigned HCP and pharmacy accounts.',
   },
 ];
 

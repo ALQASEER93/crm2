@@ -35,6 +35,20 @@ const requireAuth = async (req, res, next) => {
   }
 };
 
+const ROLE_ALIASES = {
+  admin: 'sales_manager',
+  'sales-marketing-manager': 'sales_manager',
+  'medical-sales-rep': 'sales_rep',
+  salesman: 'sales_rep',
+};
+
+const canonicalizeRole = slug => {
+  if (!slug) {
+    return slug;
+  }
+  return ROLE_ALIASES[slug] || slug;
+};
+
 const normalizeRoles = roles => {
   if (!roles) {
     return [];
@@ -48,12 +62,12 @@ const hasAnyRole = (user, roles) => {
     return false;
   }
 
-  const allowed = normalizeRoles(roles);
+  const allowed = normalizeRoles(roles).map(canonicalizeRole);
   if (!allowed.length) {
     return false;
   }
 
-  return allowed.includes(user.role.slug);
+  return allowed.includes(canonicalizeRole(user.role.slug));
 };
 
 const requireAnyRole = roles => (req, res, next) => {

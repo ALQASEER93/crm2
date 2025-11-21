@@ -9,10 +9,15 @@ const { importPharmaciesFromFile, importPharmacies } = require('../services/phar
 const router = express.Router();
 
 const DATA_FILE = path.join(__dirname, '..', 'data', 'CLIENTLIST-DOPAMINE.xlsx');
-const MANAGER_ROLES = ['admin', 'sales-marketing-manager'];
+const MANAGER_ROLES = ['sales_manager'];
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 25;
-const MAX_PAGE_SIZE = 100;
+// Response shape:
+// {
+//   data: [ ...pharmacy rows... ],
+//   pagination: { page, pageSize, total, totalPages }
+// }
+const MAX_PAGE_SIZE = 5000;
 
 const serialize = model => ({
   id: model.id,

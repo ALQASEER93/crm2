@@ -3,60 +3,47 @@ const bcrypt = require('bcryptjs');
 const { Role, User } = require('../models');
 
 const DEFAULT_ROLES = [
-  { slug: 'admin', name: 'Administrator', description: 'Full access' },
   {
-    slug: 'sales-marketing-manager',
-    name: 'Sales & Marketing Manager',
-    description: 'Manages field reps and sales teams.',
+    slug: 'sales_manager',
+    name: 'Sales Manager',
+    description: 'Oversees the entire field team.',
   },
   {
-    slug: 'medical-sales-rep',
-    name: 'Medical Sales Representative',
-    description: 'Handles HCP and clinical visits.',
-  },
-  {
-    slug: 'salesman',
-    name: 'Salesman',
-    description: 'Focused on pharmacy accounts and retail coverage.',
+    slug: 'sales_rep',
+    name: 'Sales Representative',
+    description: 'Handles assigned HCP and pharmacy accounts.',
   },
 ];
+
+const ROLE_ALIASES = {
+  admin: 'sales_manager',
+  'sales-marketing-manager': 'sales_manager',
+  'medical-sales-rep': 'sales_rep',
+  salesman: 'sales_rep',
+};
 
 const DEFAULT_USERS = [
   {
     name: 'Admin User',
     email: 'admin@example.com',
     password: 'password',
-    role: 'admin',
-  },
-  {
-    name: 'Sales & Marketing Manager',
-    email: 'manager@example.com',
-    password: 'password',
-    role: 'sales-marketing-manager',
+    role: 'sales_manager',
   },
   {
     name: 'Medical Rep',
     email: 'rep@example.com',
     password: 'password',
-    role: 'medical-sales-rep',
-  },
-  {
-    name: 'Retail Salesman',
-    email: 'salesman@example.com',
-    password: 'password',
-    role: 'salesman',
+    role: 'sales_rep',
   },
 ];
 
 async function seedUsersAndRoles() {
-  // نتأكد أن الموديلات متحمّلة
   if (!Role || !User) {
     throw new Error('Role or User model not loaded');
   }
 
   const rolesBySlug = {};
 
-  // 1) زرع/تحديث الأدوار
   for (const roleData of DEFAULT_ROLES) {
     const [role] = await Role.upsert(
       {
@@ -69,7 +56,6 @@ async function seedUsersAndRoles() {
     rolesBySlug[role.slug] = role;
   }
 
-  // 2) زرع/تحديث المستخدمين
   for (const userData of DEFAULT_USERS) {
     const role = rolesBySlug[userData.role];
     if (!role) continue;
@@ -87,8 +73,23 @@ async function seedUsersAndRoles() {
     });
   }
 
+  for (const [alias, canonicalSlug] of Object.entries(ROLE_ALIASES)) {
+    const canonicalRole = rolesBySlug[canonicalSlug];
+    if (!canonicalRole) {
+      continue;
+    }
+
+    const legacyRole = await Role.findOne({ where: { slug: alias } });
+    if (legacyRole) {
+      await User.update(
+        { roleId: canonicalRole.id },
+        { where: { roleId: legacyRole.id } },
+      );
+      await legacyRole.destroy();
+    }
+  }
+
   console.log('✅ Seeded default roles & users');
 }
 
-// مهم: نُصدّرها كـ property بهذا الشكل تماماً
 module.exports = { seedUsersAndRoles };

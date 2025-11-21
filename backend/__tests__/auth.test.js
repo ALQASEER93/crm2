@@ -21,14 +21,14 @@ const expectAuthPayload = body => {
       name: 'Admin User',
       role: {
         id: expect.any(Number),
-        name: 'Administrator',
-        slug: 'admin',
+        name: 'Sales Manager',
+        slug: 'sales_manager',
       },
     },
     id: expect.any(Number),
     email: 'admin@example.com',
     name: 'Admin User',
-    role: { id: expect.any(Number), name: 'admin' },
+    role: { id: expect.any(Number), name: 'Sales Manager', slug: 'sales_manager' },
   });
 };
 
@@ -57,14 +57,14 @@ describe('POST /api/auth/login', () => {
         name: 'Admin User',
         role: {
           id: expect.any(Number),
-          name: 'Administrator',
-          slug: 'admin',
+          name: 'Sales Manager',
+          slug: 'sales_manager',
         },
       },
       id: expect.any(Number),
       email: 'admin@example.com',
       name: 'Admin User',
-      role: { id: expect.any(Number), name: 'admin' },
+      role: { id: expect.any(Number), name: 'Sales Manager', slug: 'sales_manager' },
     });
   });
 
