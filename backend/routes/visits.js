@@ -19,6 +19,7 @@ const {
 const router = express.Router();
 
 const REP_SCOPED_ROLES = new Set(['sales_rep', 'medical-sales-rep', 'salesman']);
+const VISIT_CREATOR_ROLES = new Set([...REP_SCOPED_ROLES, 'sales_manager']);
 
 const normalizeToArray = value => {
   if (Array.isArray(value)) {
@@ -588,8 +589,8 @@ router.get('/latest', async (req, res, next) => {
 
 router.post('/', async (req, res, next) => {
   const roleSlug = req.user?.role?.slug;
-  if (!roleSlug || !REP_SCOPED_ROLES.has(roleSlug)) {
-    return res.status(403).json({ message: 'Only reps can create visits.' });
+  if (!roleSlug || !VISIT_CREATOR_ROLES.has(roleSlug)) {
+    return res.status(403).json({ message: 'Insufficient permissions.' });
   }
 
   let repContext;
