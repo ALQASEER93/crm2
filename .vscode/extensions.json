@@ -1,5 +1,10 @@
-{
-    "recommendations": [
-        "openai.chatgpt"
-    ]
+﻿{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "usernamehw.errorlens",
+    "eamodio.gitlens",
+    "rangav.vscode-thunder-client",
+    "vitest.explorer"
+  ]
 }
