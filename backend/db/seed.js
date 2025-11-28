@@ -1,45 +1,45 @@
 // backend/db/seed.js
-const bcrypt = require('bcryptjs');
-const { Role, User } = require('../models');
+const bcrypt = require("bcryptjs");
 
 const DEFAULT_ROLES = [
   {
-    slug: 'sales_manager',
-    name: 'Sales Manager',
-    description: 'Oversees the entire field team.',
+    slug: "sales_manager",
+    name: "Sales Manager",
+    description: "Oversees the entire field team.",
   },
   {
-    slug: 'sales_rep',
-    name: 'Sales Representative',
-    description: 'Handles assigned HCP and pharmacy accounts.',
+    slug: "sales_rep",
+    name: "Sales Representative",
+    description: "Handles assigned HCP and pharmacy accounts.",
   },
 ];
 
 const ROLE_ALIASES = {
-  admin: 'sales_manager',
-  'sales-marketing-manager': 'sales_manager',
-  'medical-sales-rep': 'sales_rep',
-  salesman: 'sales_rep',
+  admin: "sales_manager",
+  "sales-marketing-manager": "sales_manager",
+  "medical-sales-rep": "sales_rep",
+  salesman: "sales_rep",
 };
 
 const DEFAULT_USERS = [
   {
-    name: 'Admin User',
-    email: 'admin@example.com',
-    password: 'password',
-    role: 'sales_manager',
+    name: "Admin User",
+    email: "admin@example.com",
+    password: "password",
+    role: "sales_manager",
   },
   {
-    name: 'Medical Rep',
-    email: 'rep@example.com',
-    password: 'password',
-    role: 'sales_rep',
+    name: "Medical Rep",
+    email: "rep@example.com",
+    password: "password",
+    role: "sales_rep",
   },
 ];
 
 async function seedUsersAndRoles() {
+  const { Role, User } = require("../models");
   if (!Role || !User) {
-    throw new Error('Role or User model not loaded');
+    throw new Error("Role or User model not loaded");
   }
 
   const rolesBySlug = {};
@@ -51,7 +51,7 @@ async function seedUsersAndRoles() {
         name: roleData.name,
         description: roleData.description || null,
       },
-      { returning: true },
+      { returning: true }
     );
     rolesBySlug[role.slug] = role;
   }
@@ -83,13 +83,13 @@ async function seedUsersAndRoles() {
     if (legacyRole) {
       await User.update(
         { roleId: canonicalRole.id },
-        { where: { roleId: legacyRole.id } },
+        { where: { roleId: legacyRole.id } }
       );
       await legacyRole.destroy();
     }
   }
 
-  console.log('✅ Seeded default roles & users');
+  console.log("Seeded default roles & users");
 }
 
 module.exports = { seedUsersAndRoles };

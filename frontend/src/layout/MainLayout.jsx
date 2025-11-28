@@ -43,6 +43,16 @@ const MainLayout = () => {
               {item.label}
             </NavLink>
           ))}
+
+          {/* Admin users link should be visible only for canonical sales_manager/admin */}
+          {roleSlug && (roleSlug === 'sales_manager' || roleSlug === 'admin') && (
+            <NavLink
+              to="/admin/users"
+              className={({ isActive }) => `layout__nav-link${isActive ? ' is-active' : ''}`}
+            >
+              Admin users
+            </NavLink>
+          )}
         </nav>
       </aside>
       <div className="layout__content">

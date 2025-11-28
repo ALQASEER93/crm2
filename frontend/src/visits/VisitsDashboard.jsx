@@ -70,24 +70,27 @@ const buildQueryString = (filters, options = {}) => {
   return params.toString();
 };
 
-const mapFiltersToDisplay = (filters, availableFilters) => {
+const mapFiltersToDisplay = (filters, availableFilters = DEFAULT_AVAILABLE_FILTERS) => {
   const appliedFilters = [];
+  const reps = Array.isArray(availableFilters?.reps) ? availableFilters.reps : [];
+  const hcps = Array.isArray(availableFilters?.hcps) ? availableFilters.hcps : [];
+  const territories = Array.isArray(availableFilters?.territories) ? availableFilters.territories : [];
 
   if (filters.startDate || filters.endDate) {
     const start = filters.startDate ? filters.startDate : 'Any';
     const end = filters.endDate ? filters.endDate : 'Any';
-    appliedFilters.push(`Date: ${start} – ${end}`);
+    appliedFilters.push(`Date: ${start} - ${end}`);
   }
 
   if (Array.isArray(filters.repIds) && filters.repIds.length > 0) {
     const repNames = filters.repIds
-      .map(repId => availableFilters.reps.find(rep => String(rep.id) === String(repId))?.name || repId)
+      .map(repId => reps.find(rep => String(rep.id) === String(repId))?.name || repId)
       .join(', ');
     appliedFilters.push(`Rep: ${repNames}`);
   }
 
   if (filters.hcpId) {
-    const hcpName = availableFilters.hcps.find(hcp => String(hcp.id) === String(filters.hcpId))?.name || filters.hcpId;
+    const hcpName = hcps.find(hcp => String(hcp.id) === String(filters.hcpId))?.name || filters.hcpId;
     appliedFilters.push(`HCP: ${hcpName}`);
   }
 
@@ -98,7 +101,7 @@ const mapFiltersToDisplay = (filters, availableFilters) => {
 
   if (filters.territoryId) {
     const territoryName =
-      availableFilters.territories.find(territory => String(territory.id) === String(filters.territoryId))?.name ||
+      territories.find(territory => String(territory.id) === String(filters.territoryId))?.name ||
       filters.territoryId;
     appliedFilters.push(`Territory: ${territoryName}`);
   }
@@ -114,6 +117,32 @@ const VisitsDashboard = () => {
   const { user, token } = useAuth();
   const userRole = user?.role?.slug;
   const { filters, availableFilters, setAvailableFilters } = useVisitsFilters();
+  // Normalize filter + lookup data to keep rendering safe when API responses are missing fields.
+  const safeFilters = useMemo(
+    () => ({
+      startDate: filters?.startDate || '',
+      endDate: filters?.endDate || '',
+      repIds: Array.isArray(filters?.repIds) ? filters.repIds.filter(Boolean) : [],
+      hcpId: filters?.hcpId || '',
+      statuses: Array.isArray(filters?.statuses) ? filters.statuses.filter(Boolean) : [],
+      territoryId: filters?.territoryId || '',
+    }),
+    [filters],
+  );
+  const safeAvailableFilters = useMemo(
+    () => ({
+      reps: Array.isArray(availableFilters?.reps) ? availableFilters.reps : DEFAULT_AVAILABLE_FILTERS.reps,
+      hcps: Array.isArray(availableFilters?.hcps) ? availableFilters.hcps : DEFAULT_AVAILABLE_FILTERS.hcps,
+      territories: Array.isArray(availableFilters?.territories)
+        ? availableFilters.territories
+        : DEFAULT_AVAILABLE_FILTERS.territories,
+      statuses:
+        Array.isArray(availableFilters?.statuses) && availableFilters.statuses.length > 0
+          ? availableFilters.statuses
+          : DEFAULT_AVAILABLE_FILTERS.statuses,
+    }),
+    [availableFilters],
+  );
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [sort, setSort] = useState({ field: 'visitDate', direction: 'desc' });
@@ -142,10 +171,26 @@ const VisitsDashboard = () => {
       }
 
       setAvailableFilters(prev => ({
-        reps: options.reps ?? prev.reps ?? DEFAULT_AVAILABLE_FILTERS.reps,
-        hcps: options.hcps ?? prev.hcps ?? DEFAULT_AVAILABLE_FILTERS.hcps,
-        statuses: options.statuses ?? prev.statuses ?? DEFAULT_AVAILABLE_FILTERS.statuses,
-        territories: options.territories ?? prev.territories ?? DEFAULT_AVAILABLE_FILTERS.territories,
+        reps: Array.isArray(options.reps)
+          ? options.reps
+          : Array.isArray(prev?.reps)
+          ? prev.reps
+          : DEFAULT_AVAILABLE_FILTERS.reps,
+        hcps: Array.isArray(options.hcps)
+          ? options.hcps
+          : Array.isArray(prev?.hcps)
+          ? prev.hcps
+          : DEFAULT_AVAILABLE_FILTERS.hcps,
+        statuses: Array.isArray(options.statuses) && options.statuses.length > 0
+          ? options.statuses
+          : Array.isArray(prev?.statuses) && prev.statuses.length > 0
+          ? prev.statuses
+          : DEFAULT_AVAILABLE_FILTERS.statuses,
+        territories: Array.isArray(options.territories)
+          ? options.territories
+          : Array.isArray(prev?.territories)
+          ? prev.territories
+          : DEFAULT_AVAILABLE_FILTERS.territories,
       }));
     },
     [setAvailableFilters],
@@ -154,23 +199,23 @@ const VisitsDashboard = () => {
   useEffect(() => {
     setPage(1);
   }, [
-    filters.startDate,
-    filters.endDate,
-    filters.hcpId,
-    filters.territoryId,
-    JSON.stringify(filters.repIds),
-    JSON.stringify(filters.statuses),
+    safeFilters.startDate,
+    safeFilters.endDate,
+    safeFilters.hcpId,
+    safeFilters.territoryId,
+    JSON.stringify(safeFilters.repIds),
+    JSON.stringify(safeFilters.statuses),
   ]);
 
-  const filtersQueryString = useMemo(() => buildQueryString(filters), [filters]);
+  const filtersQueryString = useMemo(() => buildQueryString(safeFilters), [safeFilters]);
   const visitsQueryString = useMemo(
     () =>
-      buildQueryString(filters, {
+      buildQueryString(safeFilters, {
         page,
         pageSize,
         sort,
       }),
-    [filters, page, pageSize, sort],
+    [page, pageSize, safeFilters, sort],
   );
 
   const fetchSummary = useCallback(async () => {
@@ -189,7 +234,8 @@ const VisitsDashboard = () => {
       });
       setSummary(payload?.data ?? payload);
     } catch (error) {
-      setSummaryError(error.message);
+      setSummaryError(error?.message || 'Failed to load summary.');
+      setSummary(null);
     } finally {
       setSummaryLoading(false);
     }
@@ -225,7 +271,7 @@ const VisitsDashboard = () => {
         mergeAvailableFilters(filterOptions);
       }
     } catch (error) {
-      setVisitsError(error.message);
+      setVisitsError(error?.message || 'Unable to load visits.');
       setVisits([]);
       setTotalVisitsCount(0);
     } finally {
@@ -318,8 +364,8 @@ const VisitsDashboard = () => {
   }, []);
 
   const appliedFilters = useMemo(
-    () => mapFiltersToDisplay(filters, availableFilters),
-    [availableFilters, filters],
+    () => mapFiltersToDisplay(safeFilters, safeAvailableFilters),
+    [safeAvailableFilters, safeFilters],
   );
 
   const handleExport = useCallback(async () => {
@@ -359,6 +405,8 @@ const VisitsDashboard = () => {
     fetchVisits();
     fetchSummary();
   }, [fetchVisits, fetchSummary]);
+
+  const safeVisits = useMemo(() => (Array.isArray(visits) ? visits.filter(Boolean) : []), [visits]);
 
   const canCreateVisit = ['sales_rep', 'medical-sales-rep', 'salesman'].includes(userRole);
 
@@ -415,7 +463,7 @@ const VisitsDashboard = () => {
       )}
 
       <VisitsTable
-        visits={visits}
+        visits={safeVisits}
         isLoading={visitsLoading}
         error={visitsError}
         page={page}

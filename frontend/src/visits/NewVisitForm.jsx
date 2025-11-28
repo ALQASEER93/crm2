@@ -283,7 +283,15 @@ const NewVisitForm = ({ token, onClose, onCreated }) => {
       }
       onClose();
     } catch (err) {
-      setError(err.message || 'Unable to save visit.');
+      const apiMessage =
+        (err?.payload && err.payload.message) ||
+        err?.message ||
+        'Unable to save visit.';
+      const details =
+        Array.isArray(err?.payload?.errors) && err.payload.errors.length
+          ? ` (${err.payload.errors[0]})`
+          : '';
+      setError(`${apiMessage}${details}`);
     } finally {
       setSubmitting(false);
     }

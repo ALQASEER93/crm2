@@ -8,6 +8,7 @@ import HcpsPage from './pages/HcpsPage.jsx';
 import PharmaciesPage from './pages/PharmaciesPage.jsx';
 import ReportsPage from './pages/ReportsPage.jsx';
 import SettingsPage from './pages/SettingsPage.jsx';
+import AdminUsersPage from './pages/AdminUsersPage.jsx';
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -31,6 +32,7 @@ const AppRoutes = () => {
         <Route path="/pharmacies" element={<PharmaciesPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/admin/users" element={<AdminUsersPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>

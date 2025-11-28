@@ -14,3 +14,21 @@ data/
 
 # Frontend env (NEVER commit)
 frontend/.env.local
+# Logs & temp
+*.log
+*.err
+*.out.log
+*.err.log
+
+backend-dev.*
+backend-node.*
+
+structure-crm2.txt
+crm2-structure.txt
+*structure*.txt
+
+temp_*.py
+temp*.py
+
+# Local executables
+frontend/node_local.exe

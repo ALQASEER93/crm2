@@ -6,6 +6,10 @@ const { ValidationError, UniqueConstraintError } = require('sequelize');
 const { initDb, sequelize } = require('../db');
 const { Hcp, Pharmacy } = require('../models');
 
+const JSON_PATH = path.join(__dirname, '..', 'db', 'accounts.fromExcel.json');
+const ACCOUNTS_XLSX = path.join(__dirname, '..', 'data', 'accounts.xlsx');
+const HCPS_XLSX = path.join(__dirname, '..', 'data', 'hcps.xlsx');
+
 const normalizeString = value => {
   if (value === undefined || value === null) return null;
   const s = String(value).trim();
@@ -24,9 +28,18 @@ const normalizeEmail = value => {
   return s === '' ? null : s;
 };
 
+const pickValue = (row, ...keys) => {
+  for (const key of keys) {
+    if (row[key] !== undefined && row[key] !== null) {
+      return row[key];
+    }
+  }
+  return null;
+};
+
 const isPharmacyRow = row => {
-  const clientTag = normalizeString(row['Client Tag']);
-  const specialty = normalizeString(row['Speciality']) || normalizeString(row['Specialty']);
+  const clientTag = normalizeString(pickValue(row, 'Client Tag', 'clientTag'));
+  const specialty = normalizeString(pickValue(row, 'Speciality', 'Specialty', 'speciality', 'specialty'));
 
   if (specialty && specialty.toLowerCase() === 'pharmacy') {
     return true;
@@ -39,129 +52,150 @@ const isPharmacyRow = row => {
   return false;
 };
 
-const buildHcpRecord = row => {
-  const name = normalizeString(row['Name']);
+const toHcpRecord = row => {
+  const name = normalizeString(pickValue(row, 'Name', 'name'));
   if (!name) {
     return null;
   }
 
-  const clientTag = normalizeString(row['Client Tag']);
-  const specialty = normalizeString(row['Speciality']) || normalizeString(row['Specialty']);
-  const areaTag = normalizeString(row['Area Tag']) || normalizeString(row['Area']) || normalizeString(row['Tag']);
+  const clientTag = normalizeString(pickValue(row, 'Client Tag', 'clientTag'));
+  const specialty = normalizeString(pickValue(row, 'Speciality', 'Specialty', 'speciality', 'specialty'));
+  const areaTag =
+    normalizeString(pickValue(row, 'Area Tag', 'areaTag')) ||
+    normalizeString(pickValue(row, 'Area', 'area')) ||
+    normalizeString(pickValue(row, 'Tag', 'tag'));
 
   return {
     name,
     areaTag,
     specialty,
-    city: normalizeString(row['City']),
-    area: normalizeString(row['Area']),
+    city: normalizeString(pickValue(row, 'City', 'city')),
+    area: normalizeString(pickValue(row, 'Area', 'area')),
     segment: clientTag && clientTag.toLowerCase() !== 'pharmacy' ? clientTag : null,
-    phone: normalizePhone(row['Phone']),
+    phone: normalizePhone(pickValue(row, 'Phone', 'phone')),
     mobile: null,
-    email: normalizeEmail(row['Email']),
+    email: normalizeEmail(pickValue(row, 'Email', 'email')),
   };
 };
 
-const buildPharmacyRecord = row => {
-  const name = normalizeString(row['Name']);
+const toPharmacyRecord = row => {
+  const name = normalizeString(pickValue(row, 'Name', 'name'));
   if (!name) {
     return null;
   }
 
-  const clientTag = normalizeString(row['Client Tag']);
-  const areaTag = normalizeString(row['Area Tag']) || normalizeString(row['Area']) || normalizeString(row['Tag']);
-
   return {
     name,
-    city: normalizeString(row['City']),
-    area: normalizeString(row['Area']),
-    phone: normalizePhone(row['Phone']),
-    // We currently do not persist segment/areaTag on Pharmacy model;
-    // this can be extended by adding nullable columns if needed later.
+    city: normalizeString(pickValue(row, 'City', 'city')),
+    area: normalizeString(pickValue(row, 'Area', 'area')),
+    phone: normalizePhone(pickValue(row, 'Phone', 'phone')),
   };
 };
 
-async function main() {
-  const workbookPath = path.join(__dirname, '..', '..', 'data', 'hcps.xlsx');
-
-  if (!fs.existsSync(workbookPath)) {
-    // eslint-disable-next-line no-console
-    console.error('Cannot find Excel file at:', workbookPath);
-    process.exitCode = 1;
-    return;
+const loadFromJson = () => {
+  if (!fs.existsSync(JSON_PATH)) {
+    return null;
   }
 
-  await initDb();
+  const raw = JSON.parse(fs.readFileSync(JSON_PATH, 'utf8'));
+  return {
+    hcps: Array.isArray(raw.hcps) ? raw.hcps.map(toHcpRecord).filter(Boolean) : [],
+    pharmacies: Array.isArray(raw.pharmacies) ? raw.pharmacies.map(toPharmacyRecord).filter(Boolean) : [],
+    source: JSON_PATH,
+  };
+};
 
-  const workbook = xlsx.readFile(workbookPath);
-  const sheet =
-    workbook.Sheets['Name'] ||
-    workbook.Sheets['HCPs'] ||
-    workbook.Sheets[workbook.SheetNames[0]];
+const loadFromExcel = () => {
+  const excelPath = fs.existsSync(ACCOUNTS_XLSX) ? ACCOUNTS_XLSX : fs.existsSync(HCPS_XLSX) ? HCPS_XLSX : null;
+  if (!excelPath) {
+    return null;
+  }
+
+  const workbook = xlsx.readFile(excelPath);
+  const sheet = workbook.Sheets['Name'] || workbook.Sheets['HCPs'] || workbook.Sheets[workbook.SheetNames[0]];
 
   if (!sheet) {
-    // eslint-disable-next-line no-console
-    console.error('No worksheet found in hcps.xlsx');
-    process.exitCode = 1;
-    return;
+    throw new Error(`No worksheet found in ${path.basename(excelPath)}`);
   }
 
   const rows = xlsx.utils.sheet_to_json(sheet, { defval: null });
-
-  const hcpRecords = [];
-  const pharmacyRecords = [];
+  const hcps = [];
+  const pharmacies = [];
 
   rows.forEach(row => {
     if (isPharmacyRow(row)) {
-      const record = buildPharmacyRecord(row);
+      const record = toPharmacyRecord(row);
       if (record) {
-        pharmacyRecords.push(record);
+        pharmacies.push(record);
       }
     } else {
-      const record = buildHcpRecord(row);
+      const record = toHcpRecord(row);
       if (record) {
-        hcpRecords.push(record);
+        hcps.push(record);
       }
     }
   });
 
-  // eslint-disable-next-line no-console
-  console.log('Preparing bulk import from Excel.');
-  // eslint-disable-next-line no-console
-  console.log('HCP rows to import: %d', hcpRecords.length);
-  // eslint-disable-next-line no-console
-  console.log('Pharmacy rows to import: %d', pharmacyRecords.length);
+  return { hcps, pharmacies, source: excelPath };
+};
 
+const loadAccounts = () => {
+  const fromJson = loadFromJson();
+  if (fromJson) {
+    return fromJson;
+  }
+  return loadFromExcel();
+};
+
+async function main() {
   try {
-    if (hcpRecords.length) {
-      await Hcp.bulkCreate(hcpRecords, { ignoreDuplicates: true });
+    const payload = loadAccounts();
+    if (!payload) {
+      console.error('No accounts file found. Expected:', JSON_PATH, 'or', ACCOUNTS_XLSX);
+      process.exitCode = 1;
+      return;
     }
-    if (pharmacyRecords.length) {
-      await Pharmacy.bulkCreate(pharmacyRecords, { ignoreDuplicates: true });
+
+    const hcps = Array.isArray(payload.hcps) ? payload.hcps : [];
+    const pharmacies = Array.isArray(payload.pharmacies) ? payload.pharmacies : [];
+    const source = payload.source || 'unknown source';
+
+    if (hcps.length === 0 && pharmacies.length === 0) {
+      console.warn('No account rows were found in', source);
+      return;
+    }
+
+    await initDb();
+
+    const transaction = await sequelize.transaction();
+    try {
+      if (hcps.length) {
+        await Hcp.bulkCreate(hcps, { ignoreDuplicates: true, transaction });
+      }
+      if (pharmacies.length) {
+        await Pharmacy.bulkCreate(pharmacies, { ignoreDuplicates: true, transaction });
+      }
+      await transaction.commit();
+      console.log(`Imported ${hcps.length} HCP(s) and ${pharmacies.length} pharmacy record(s) from ${source}.`);
+    } catch (error) {
+      await transaction.rollback();
+      if (error instanceof ValidationError || error instanceof UniqueConstraintError) {
+        console.error('Some account rows were rejected due to validation/uniqueness issues.', error.message);
+      } else {
+        throw error;
+      }
+      process.exitCode = 1;
     }
   } catch (error) {
-    if (error instanceof ValidationError || error instanceof UniqueConstraintError) {
-      // eslint-disable-next-line no-console
-      console.error('Some account rows were rejected due to validation/uniqueness issues.', error.message);
-    } else {
-      throw error;
-    }
-  }
-
-  // eslint-disable-next-line no-console
-  console.log('Import from Excel completed.');
-}
-
-main()
-  .catch(error => {
-    // eslint-disable-next-line no-console
-    console.error('Failed to import accounts from Excel:', error);
+    console.error('Failed to import accounts from Excel/JSON:', error.message || error);
     process.exitCode = 1;
-  })
-  .finally(async () => {
+  } finally {
     try {
       await sequelize.close();
     } catch (_error) {
-      // ignore
+      // Ignore close errors.
     }
-  });
+  }
+}
+
+main();

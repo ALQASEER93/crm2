@@ -1,15 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const { initDb } = require('./db');
-const hcpsRouter = require('./routes/hcps');
-const importRouter = require('./routes/import');
 const { authenticate, AuthenticationError, refreshToken } = require('./services/auth');
 const { requireAuth, requireRole } = require('./middleware/auth');
-const visitsRouter = require('./routes/visits');
-const reportsRouter = require('./routes/reports');
-const pharmaciesRouter = require('./routes/pharmacies');
-const salesRepsRouter = require('./routes/salesReps');
-const territoriesRouter = require('./routes/territories');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -85,26 +78,41 @@ app.post('/api/auth/refresh', requireAuth, (req, res, next) => {
 });
 // Health and primary functional routers assume authentication middleware ran above.
 app.get('/api/health', healthHandler);
-app.use(
-  '/api/hcps',
-  requireAuth,
-  requireRole(['sales_manager', 'sales_rep']),
-  hcpsRouter,
-);
-app.use('/api/import', requireAuth, requireRole(['sales_manager']), importRouter);
-app.use('/api/visits', requireAuth, visitsRouter);
-app.use('/api/reports', requireAuth, reportsRouter);
-app.use(
-  '/api/pharmacies',
-  requireAuth,
-  requireRole(['sales_manager', 'sales_rep']),
-  pharmaciesRouter,
-);
-app.use('/api/sales-reps', requireAuth, requireRole(['sales_manager', 'sales_rep']), salesRepsRouter);
-app.use('/api/territories', requireAuth, requireRole(['sales_manager', 'sales_rep']), territoriesRouter);
+
+const registerRoutes = () => {
+  const hcpsRouter = require('./routes/hcps');
+  const importRouter = require('./routes/import');
+  const visitsRouter = require('./routes/visits');
+  const reportsRouter = require('./routes/reports');
+  const pharmaciesRouter = require('./routes/pharmacies');
+  const salesRepsRouter = require('./routes/salesReps');
+  const territoriesRouter = require('./routes/territories');
+
+  app.use(
+    '/api/hcps',
+    requireAuth,
+    requireRole(['sales_manager', 'sales_rep']),
+    hcpsRouter,
+  );
+  app.use('/api/import', requireAuth, requireRole(['sales_manager']), importRouter);
+  app.use('/api/visits', requireAuth, visitsRouter);
+  app.use('/api/reports', requireAuth, reportsRouter);
+  app.use(
+    '/api/pharmacies',
+    requireAuth,
+    requireRole(['sales_manager', 'sales_rep']),
+    pharmaciesRouter,
+  );
+  app.use('/api/sales-reps', requireAuth, requireRole(['sales_manager', 'sales_rep']), salesRepsRouter);
+  app.use('/api/territories', requireAuth, requireRole(['sales_manager', 'sales_rep']), territoriesRouter);
+  const usersRouter = require('./routes/users');
+  app.use('/api/admin/users', requireAuth, requireRole(['sales_manager', 'admin']), usersRouter);
+};
 
 // Initialize the database once; routers can rely on `ready` when needed for testing.
-const ready = initDb();
+const ready = initDb().then(() => {
+  registerRoutes();
+});
 
 if (require.main === module) {
   ready

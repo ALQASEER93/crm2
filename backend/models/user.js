@@ -27,6 +27,12 @@ const User = sequelize.define(
       allowNull: false,
       field: 'password_hash',
     },
+    isActive: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: 'is_active',
+    },
     roleId: {
       type: DataTypes.INTEGER,
       allowNull: false,

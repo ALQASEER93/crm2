@@ -59,6 +59,10 @@ const authenticate = async (email, password) => {
     throw new AuthenticationError('Invalid email or password.');
   }
 
+  if (user.isActive === false) {
+    throw new AuthenticationError('Invalid email or password.');
+  }
+
   const isValidPassword = await bcrypt.compare(password, user.passwordHash);
   if (!isValidPassword) {
     throw new AuthenticationError('Invalid email or password.');
@@ -77,7 +81,7 @@ const verifyToken = async token => {
       include: [{ model: Role, as: 'role' }],
     });
 
-    if (!user) {
+    if (!user || user.isActive === false) {
       throw new AuthenticationError('Invalid authentication token.');
     }
 

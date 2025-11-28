@@ -51,9 +51,30 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
   const { user } = useAuth();
   const userRole = user?.role?.slug;
 
-  const repOptions = useMemo(() => availableFilters?.reps ?? [], [availableFilters?.reps]);
-  const hcpOptions = useMemo(() => availableFilters?.hcps ?? [], [availableFilters?.hcps]);
-  const territoryOptions = useMemo(() => availableFilters?.territories ?? [], [availableFilters?.territories]);
+  const normalizedFilters = useMemo(
+    () => ({
+      startDate: filters?.startDate || '',
+      endDate: filters?.endDate || '',
+      repIds: Array.isArray(filters?.repIds) ? filters.repIds : [],
+      hcpId: filters?.hcpId || '',
+      statuses: Array.isArray(filters?.statuses) ? filters.statuses : [],
+      territoryId: filters?.territoryId || '',
+    }),
+    [filters],
+  );
+
+  const repOptions = useMemo(
+    () => (Array.isArray(availableFilters?.reps) ? availableFilters.reps : []),
+    [availableFilters?.reps],
+  );
+  const hcpOptions = useMemo(
+    () => (Array.isArray(availableFilters?.hcps) ? availableFilters.hcps : []),
+    [availableFilters?.hcps],
+  );
+  const territoryOptions = useMemo(
+    () => (Array.isArray(availableFilters?.territories) ? availableFilters.territories : []),
+    [availableFilters?.territories],
+  );
   const statusOptions = useMemo(() => {
     if (Array.isArray(availableFilters?.statuses) && availableFilters.statuses.length > 0) {
       return availableFilters.statuses.map(status => ({
@@ -68,7 +89,7 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
     key => event => {
       updateFilter(key, event.target.value);
     },
-    [updateFilter]
+    [updateFilter],
   );
 
   const handlePresetClick = useCallback(
@@ -77,20 +98,20 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
       updateFilter('startDate', range.start);
       updateFilter('endDate', range.end);
     },
-    [updateFilter]
+    [updateFilter],
   );
 
   const handleStatusToggle = useCallback(
     status => {
-      const currentStatuses = Array.isArray(filters.statuses) ? filters.statuses : [];
+      const currentStatuses = Array.isArray(normalizedFilters.statuses) ? normalizedFilters.statuses : [];
       updateFilter(
         'statuses',
         currentStatuses.includes(status)
           ? currentStatuses.filter(item => item !== status)
-          : [...currentStatuses, status]
+          : [...currentStatuses, status],
       );
     },
-    [filters.statuses, updateFilter]
+    [normalizedFilters.statuses, updateFilter],
   );
 
   const handleRepChange = useCallback(
@@ -128,16 +149,16 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
         <div className="visits-filters__inputs">
           <input
             type="date"
-            value={filters.startDate || ''}
+            value={normalizedFilters.startDate}
             onChange={handleDateChange('startDate')}
             disabled={isLoading}
           />
-          <input
-            type="date"
-            value={filters.endDate || ''}
-            onChange={handleDateChange('endDate')}
-            disabled={isLoading}
-          />
+    <input
+      type="date"
+      value={normalizedFilters.endDate}
+      onChange={handleDateChange('endDate')}
+      disabled={isLoading}
+    />
         </div>
         <div className="visits-filters__presets">
           <button type="button" onClick={() => handlePresetClick('week')} disabled={isLoading}>
@@ -153,15 +174,15 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
       </div>
 
       <div className="visits-filters__section">
-        <span className="visits-filters__label">Representative</span>
-        <select
-          multiple
-          value={filters.repIds}
-          onChange={handleRepChange}
-          disabled={disableRepSelection || isLoading || referenceLoading}
-          className="visits-filters__multiselect"
-        >
-          {repOptions.map(rep => (
+      <span className="visits-filters__label">Representative</span>
+      <select
+        multiple
+        value={normalizedFilters.repIds}
+        onChange={handleRepChange}
+        disabled={disableRepSelection || isLoading || referenceLoading}
+        className="visits-filters__multiselect"
+      >
+        {repOptions.map(rep => (
             <option key={rep.id} value={rep.id}>
               {rep.name}
             </option>
@@ -177,7 +198,7 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
       <div className="visits-filters__section">
         <span className="visits-filters__label">HCP</span>
         <select
-          value={filters.hcpId || ''}
+          value={normalizedFilters.hcpId || ''}
           onChange={handleHcpChange}
           disabled={isLoading || referenceLoading}
           className="input"
@@ -198,7 +219,7 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
             <label key={status.value}>
               <input
                 type="checkbox"
-                checked={filters.statuses.includes(status.value)}
+                checked={normalizedFilters.statuses.includes(status.value)}
                 onChange={() => handleStatusToggle(status.value)}
                 disabled={isLoading}
               />
@@ -211,7 +232,7 @@ const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
       <div className="visits-filters__section">
         <span className="visits-filters__label">Territory</span>
         <select
-          value={filters.territoryId || ''}
+          value={normalizedFilters.territoryId || ''}
           onChange={handleTerritoryChange}
           disabled={isLoading || referenceLoading}
           className="input"

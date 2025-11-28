@@ -3,6 +3,7 @@ const Visit = require('../models/visit');
 const SalesRep = require('../models/salesRep');
 const Hcp = require('../models/hcp');
 const Territory = require('../models/territory');
+const User = require('../models/user');
 const {
   listVisits,
   summarizeVisits,
@@ -82,7 +83,7 @@ const isValidDate = value => {
 
 const toDateOnly = value => new Date(value).toISOString().slice(0, 10);
 
-const resolveRepForUser = async user => {
+const resolveRepForUser = async (user, { allowMissingProfile = false } = {}) => {
   if (!user?.role || !REP_SCOPED_ROLES.has(user.role.slug)) {
     return null;
   }
@@ -92,6 +93,9 @@ const resolveRepForUser = async user => {
   });
 
   if (!rep) {
+    if (allowMissingProfile) {
+      return null;
+    }
     throw new Error('REP_PROFILE_NOT_FOUND');
   }
 
@@ -480,6 +484,16 @@ const parseListQuery = query => {
   return { params, errors };
 };
 
+const loadUserTerritoryIds = async userId => {
+  const user = await User.findByPk(userId, {
+    include: [{ model: Territory, as: 'territories', through: { attributes: [] } }],
+  });
+  if (!user) {
+    return [];
+  }
+  return Array.isArray(user.territories) ? user.territories.map(t => t.id) : [];
+};
+
 router.get('/', async (req, res, next) => {
   const { params, errors } = parseListQuery(req.query || {});
   if (errors.length) {
@@ -595,12 +609,24 @@ router.post('/', async (req, res, next) => {
 
   let repContext;
   try {
-    repContext = await resolveRepForUser(req.user);
+    repContext = await resolveRepForUser(req.user, { allowMissingProfile: true });
   } catch (error) {
     return res.status(403).json({ message: 'Insufficient permissions.' });
   }
 
   const payload = { ...(req.body || {}) };
+
+  // Map common external payloads to supported enums/fields (e.g., PWA sends "pending" status, elapsedSeconds)
+  if (payload.status === 'pending') {
+    payload.status = 'scheduled';
+  }
+
+  if (payload.durationMinutes === undefined && payload.elapsedSeconds !== undefined) {
+    const seconds = Number(payload.elapsedSeconds);
+    if (Number.isFinite(seconds) && seconds >= 0) {
+      payload.durationMinutes = Math.max(0, Math.round(seconds / 60));
+    }
+  }
 
   if (payload.accountType && payload.accountId) {
     if (payload.accountType === 'hcp') {
@@ -612,8 +638,43 @@ router.post('/', async (req, res, next) => {
     }
   }
 
+  if (!payload.startLocation && payload.location?.start) {
+    payload.startLocation = payload.location.start;
+  }
+  if (!payload.endLocation && payload.location?.end) {
+    payload.endLocation = payload.location.end;
+  }
+
   if (!payload.territoryId && repContext && repContext.territoryId) {
     payload.territoryId = repContext.territoryId;
+  }
+
+  // If this is a rep and no matching SalesRep profile, surface a clear 400 instead of a 403.
+  if (REP_SCOPED_ROLES.has(roleSlug) && !repContext) {
+    return res.status(400).json({
+      message: 'Your sales rep profile was not found. Please ask an admin to set up your Sales Rep record before creating visits.',
+      errors: ['Sales rep profile missing for current user.'],
+    });
+  }
+
+  // Territory and account-type restrictions
+  const userTerritoryIds = await loadUserTerritoryIds(req.user.id);
+  const activeTerritoryId = payload.territoryId;
+  if (REP_SCOPED_ROLES.has(roleSlug)) {
+    if (!activeTerritoryId || !userTerritoryIds.includes(Number(activeTerritoryId))) {
+      return res.status(403).json({
+        message: 'You are not assigned to this territory.',
+        errors: ['Territory is not assigned to this user.'],
+      });
+    }
+
+    const repType = repContext?.repType || 'sales_rep';
+    if (repType === 'sales_rep' && payload.accountType === 'hcp') {
+      return res.status(403).json({ message: 'Sales reps can only create pharmacy visits.' });
+    }
+    if (repType === 'medical_rep' && payload.accountType === 'pharmacy') {
+      return res.status(403).json({ message: 'Medical reps can only create HCP visits.' });
+    }
   }
 
   const { data, errors } = validateVisitPayload(payload, { partial: false, requireRepId: !repContext });
