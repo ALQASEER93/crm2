@@ -2,9 +2,16 @@ const { initDb, sequelize } = require('../db');
 const { Role } = require('../models');
 
 const roles = [
-  { name: 'admin', description: 'System administrator with full access.' },
-  { name: 'manager', description: 'Regional manager with visibility across teams.' },
-  { name: 'rep', description: 'Sales representative with access to their own visits.' },
+  {
+    slug: 'sales_manager',
+    name: 'Sales Manager',
+    description: 'Regional manager with visibility across teams.',
+  },
+  {
+    slug: 'sales_rep',
+    name: 'Sales Representative',
+    description: 'Handles assigned HCP and pharmacy accounts.',
+  },
 ];
 
 const seedRoles = async () => {

@@ -1,6 +1,6 @@
 const { Op, fn, col, where: whereFn } = require('sequelize');
 const { stringify } = require('csv-stringify/sync');
-const { Visit, Hcp, SalesRep, Territory } = require('../models');
+const { Visit, Hcp, SalesRep, Territory, Pharmacy } = require('../models');
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_PAGE_SIZE = 25;
@@ -19,7 +19,12 @@ const baseInclude = [
   {
     model: Hcp,
     as: 'hcp',
-    attributes: ['id', 'name', 'areaTag', 'specialty', 'phone', 'email'],
+    attributes: ['id', 'name', 'areaTag', 'specialty', 'phone', 'email', 'segment'],
+  },
+  {
+    model: Pharmacy,
+    as: 'pharmacy',
+    attributes: ['id', 'name', 'city', 'area', 'phone'],
   },
   {
     model: SalesRep,
@@ -60,8 +65,12 @@ const parseIntegerList = value => {
 };
 
 const buildWhereClause = filters => {
-  const where = {};
+  const where = { isDeleted: false };
   const andConditions = [];
+
+  if (filters.includeDeleted) {
+    delete where.isDeleted;
+  }
 
   if (filters.status) {
     const statuses = normalizeArray(filters.status);
@@ -129,39 +138,108 @@ const buildWhereClause = filters => {
   return where;
 };
 
-const serializeVisit = visit => ({
-  id: visit.id,
-  visitDate: visit.visitDate,
-  status: visit.status,
-  durationMinutes: visit.durationMinutes,
-  notes: visit.notes || null,
-  rep: visit.rep
-    ? {
-        id: visit.rep.id,
-        name: visit.rep.name,
-        email: visit.rep.email,
+const serializeVisit = visit => {
+  let account = null;
+  if (visit.accountType === 'hcp' && visit.hcp) {
+    account = {
+      id: visit.hcp.id,
+      name: visit.hcp.name,
+      type: 'hcp',
+      areaTag: visit.hcp.areaTag || null,
+      segment: visit.hcp.segment || null,
+    };
+  } else if (visit.accountType === 'pharmacy' && visit.pharmacy) {
+    account = {
+      id: visit.pharmacy.id,
+      name: visit.pharmacy.name,
+      type: 'pharmacy',
+      areaTag: visit.pharmacy.area || null,
+      segment: 'Pharmacy',
+    };
+  }
+
+  let products = null;
+  if (typeof visit.productsJson === 'string' && visit.productsJson.trim()) {
+    try {
+      const parsed = JSON.parse(visit.productsJson);
+      if (Array.isArray(parsed)) {
+        products = parsed;
       }
-    : null,
-  hcp: visit.hcp
-    ? {
-        id: visit.hcp.id,
-        name: visit.hcp.name,
-        areaTag: visit.hcp.areaTag,
-        specialty: visit.hcp.specialty,
-        phone: visit.hcp.phone,
-        email: visit.hcp.email,
-      }
-    : null,
-  territory: visit.territory
-    ? {
-        id: visit.territory.id,
-        name: visit.territory.name,
-        code: visit.territory.code,
-      }
-    : null,
-  createdAt: visit.createdAt,
-  updatedAt: visit.updatedAt,
-});
+    } catch (_error) {
+      products = null;
+    }
+  }
+
+  return {
+    id: visit.id,
+    visitDate: visit.visitDate,
+    status: visit.status,
+    durationMinutes: visit.durationMinutes,
+    notes: visit.notes || null,
+    rep: visit.rep
+      ? {
+          id: visit.rep.id,
+          name: visit.rep.name,
+          email: visit.rep.email,
+        }
+      : null,
+    hcp: visit.hcp
+      ? {
+          id: visit.hcp.id,
+          name: visit.hcp.name,
+          areaTag: visit.hcp.areaTag,
+          specialty: visit.hcp.specialty,
+          phone: visit.hcp.phone,
+          email: visit.hcp.email,
+        }
+      : null,
+    pharmacy: visit.pharmacy
+      ? {
+          id: visit.pharmacy.id,
+          name: visit.pharmacy.name,
+          city: visit.pharmacy.city,
+          area: visit.pharmacy.area,
+          phone: visit.pharmacy.phone,
+        }
+      : null,
+    accountType: visit.accountType || null,
+    hcpId: visit.hcpId || null,
+    pharmacyId: visit.pharmacyId || null,
+    account,
+    visitPurpose: visit.visitPurpose || null,
+    visitChannel: visit.visitChannel || null,
+    products,
+    commitmentText: visit.commitmentText || null,
+    nextVisitDate: visit.nextVisitDate || null,
+    orderValueJOD: visit.orderValueJOD != null ? Number(visit.orderValueJOD) : null,
+    rating: visit.rating != null ? visit.rating : null,
+    startLocation:
+      visit.startLat != null && visit.startLng != null
+        ? {
+            lat: visit.startLat,
+            lng: visit.startLng,
+            accuracy: visit.startAccuracy != null ? visit.startAccuracy : null,
+          }
+        : null,
+    endLocation:
+      visit.endLat != null && visit.endLng != null
+        ? {
+            lat: visit.endLat,
+            lng: visit.endLng,
+            accuracy: visit.endAccuracy != null ? visit.endAccuracy : null,
+          }
+        : null,
+    territory: visit.territory
+      ? {
+          id: visit.territory.id,
+          name: visit.territory.name,
+          code: visit.territory.code,
+        }
+      : null,
+    createdAt: visit.createdAt,
+    updatedAt: visit.updatedAt,
+  };
+};
 
 const listVisits = async params => {
   const page = params.page || DEFAULT_PAGE;
@@ -341,12 +419,43 @@ const exportVisits = async params => {
   return csv;
 };
 
+const findVisitById = async id => {
+  const parsedId = Number.parseInt(id, 10);
+  if (!Number.isInteger(parsedId)) {
+    return null;
+  }
+
+  return Visit.findByPk(parsedId, {
+    include: baseInclude,
+  });
+};
+
+const createVisit = async payload => {
+  const visit = await Visit.create(payload);
+  await visit.reload({ include: baseInclude });
+  return serializeVisit(visit);
+};
+
+const updateVisit = async (visit, payload) => {
+  await visit.update(payload);
+  await visit.reload({ include: baseInclude });
+  return serializeVisit(visit);
+};
+
+const softDeleteVisit = async visit => {
+  await visit.update({ isDeleted: true });
+};
+
 module.exports = {
   listVisits,
   summarizeVisits,
   exportVisits,
   serializeVisit,
   buildWhereClause,
+  findVisitById,
+  createVisit,
+  updateVisit,
+  softDeleteVisit,
   DEFAULT_PAGE,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,

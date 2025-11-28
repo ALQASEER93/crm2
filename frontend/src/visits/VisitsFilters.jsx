@@ -1,10 +1,10 @@
 import { useCallback, useMemo } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { useVisitsFilters } from './VisitsFilterContext';
+import './VisitsFilters.css';
 
 const STATIC_STATUS_OPTIONS = [
   { value: 'scheduled', label: 'Scheduled' },
-  { value: 'in_progress', label: 'In Progress' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
@@ -46,20 +46,35 @@ const getPresetRange = preset => {
   }
 };
 
-const Section = ({ title, children }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '180px' }}>
-    <span style={{ fontWeight: 600, color: '#52606d', fontSize: '14px' }}>{title}</span>
-    {children}
-  </div>
-);
+const VisitsFilters = ({ isLoading, referenceLoading, referenceError }) => {
+  const { filters, updateFilter, resetFilters, availableFilters } = useVisitsFilters();
+  const { user } = useAuth();
+  const userRole = user?.role?.slug;
 
-const VisitsFilters = ({ availableFilters, isLoading }) => {
-  const { filters, updateFilter, resetFilters } = useVisitsFilters();
-  const { role, user, setRole } = useAuth();
+  const normalizedFilters = useMemo(
+    () => ({
+      startDate: filters?.startDate || '',
+      endDate: filters?.endDate || '',
+      repIds: Array.isArray(filters?.repIds) ? filters.repIds : [],
+      hcpId: filters?.hcpId || '',
+      statuses: Array.isArray(filters?.statuses) ? filters.statuses : [],
+      territoryId: filters?.territoryId || '',
+    }),
+    [filters],
+  );
 
-  const repOptions = useMemo(() => availableFilters?.reps ?? [], [availableFilters?.reps]);
-  const hcpOptions = useMemo(() => availableFilters?.hcps ?? [], [availableFilters?.hcps]);
-  const territoryOptions = useMemo(() => availableFilters?.territories ?? [], [availableFilters?.territories]);
+  const repOptions = useMemo(
+    () => (Array.isArray(availableFilters?.reps) ? availableFilters.reps : []),
+    [availableFilters?.reps],
+  );
+  const hcpOptions = useMemo(
+    () => (Array.isArray(availableFilters?.hcps) ? availableFilters.hcps : []),
+    [availableFilters?.hcps],
+  );
+  const territoryOptions = useMemo(
+    () => (Array.isArray(availableFilters?.territories) ? availableFilters.territories : []),
+    [availableFilters?.territories],
+  );
   const statusOptions = useMemo(() => {
     if (Array.isArray(availableFilters?.statuses) && availableFilters.statuses.length > 0) {
       return availableFilters.statuses.map(status => ({
@@ -74,7 +89,7 @@ const VisitsFilters = ({ availableFilters, isLoading }) => {
     key => event => {
       updateFilter(key, event.target.value);
     },
-    [updateFilter]
+    [updateFilter],
   );
 
   const handlePresetClick = useCallback(
@@ -83,19 +98,20 @@ const VisitsFilters = ({ availableFilters, isLoading }) => {
       updateFilter('startDate', range.start);
       updateFilter('endDate', range.end);
     },
-    [updateFilter]
+    [updateFilter],
   );
 
   const handleStatusToggle = useCallback(
     status => {
+      const currentStatuses = Array.isArray(normalizedFilters.statuses) ? normalizedFilters.statuses : [];
       updateFilter(
         'statuses',
-        filters.statuses.includes(status)
-          ? filters.statuses.filter(item => item !== status)
-          : [...filters.statuses, status]
+        currentStatuses.includes(status)
+          ? currentStatuses.filter(item => item !== status)
+          : [...currentStatuses, status],
       );
     },
-    [filters.statuses, updateFilter]
+    [normalizedFilters.statuses, updateFilter],
   );
 
   const handleRepChange = useCallback(
@@ -115,104 +131,77 @@ const VisitsFilters = ({ availableFilters, isLoading }) => {
 
   const handleTerritoryChange = useCallback(
     event => {
-      updateFilter('territory', event.target.value);
+      updateFilter('territoryId', event.target.value);
     },
-    [updateFilter]
+    [updateFilter],
   );
 
-  const handleRoleChange = useCallback(
-    event => {
-      const nextRole = event.target.value;
-      setRole(nextRole);
-    },
-    [setRole]
-  );
-
-  const disableRepSelection = role === 'sales_rep' && user?.id;
+  const disableRepSelection = userRole === 'sales_rep';
 
   return (
-    <section
-      aria-label="Visits filters"
-      style={{
-        display: 'flex',
-        gap: '24px',
-        flexWrap: 'wrap',
-        backgroundColor: '#f7fafc',
-        padding: '16px',
-        borderRadius: '8px',
-        marginBottom: '24px',
-      }}
-    >
-      <Section title="Date range">
-        <div style={{ display: 'flex', gap: '8px' }}>
+    <section className="visits-filters" aria-label="Visits filters">
+      {referenceError && <div className="visits-filters__alert">{referenceError}</div>}
+      {!referenceError && referenceLoading && (
+        <div className="visits-filters__loading">Loading filter options…</div>
+      )}
+      <div className="visits-filters__section">
+        <span className="visits-filters__label">Date range</span>
+        <div className="visits-filters__inputs">
           <input
             type="date"
-            value={filters.startDate || ''}
+            value={normalizedFilters.startDate}
             onChange={handleDateChange('startDate')}
             disabled={isLoading}
-            style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd2d9' }}
           />
-          <input
-            type="date"
-            value={filters.endDate || ''}
-            onChange={handleDateChange('endDate')}
-            disabled={isLoading}
-            style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd2d9' }}
-          />
+    <input
+      type="date"
+      value={normalizedFilters.endDate}
+      onChange={handleDateChange('endDate')}
+      disabled={isLoading}
+    />
         </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => handlePresetClick('week')}
-            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd2d9', backgroundColor: '#fff', cursor: 'pointer' }}
-            disabled={isLoading}
-          >
+        <div className="visits-filters__presets">
+          <button type="button" onClick={() => handlePresetClick('week')} disabled={isLoading}>
             This week
           </button>
-          <button
-            type="button"
-            onClick={() => handlePresetClick('month')}
-            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd2d9', backgroundColor: '#fff', cursor: 'pointer' }}
-            disabled={isLoading}
-          >
+          <button type="button" onClick={() => handlePresetClick('month')} disabled={isLoading}>
             This month
           </button>
-          <button
-            type="button"
-            onClick={() => handlePresetClick('quarter')}
-            style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd2d9', backgroundColor: '#fff', cursor: 'pointer' }}
-            disabled={isLoading}
-          >
+          <button type="button" onClick={() => handlePresetClick('quarter')} disabled={isLoading}>
             This quarter
           </button>
         </div>
-      </Section>
+      </div>
 
-      <Section title="Representative">
-        <select
-          multiple
-          value={filters.repIds}
-          onChange={handleRepChange}
-          disabled={disableRepSelection || isLoading}
-          style={{ minHeight: '96px', padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd2d9' }}
-        >
-          {repOptions.map(rep => (
+      <div className="visits-filters__section">
+      <span className="visits-filters__label">Representative</span>
+      <select
+        multiple
+        value={normalizedFilters.repIds}
+        onChange={handleRepChange}
+        disabled={disableRepSelection || isLoading || referenceLoading}
+        className="visits-filters__multiselect"
+      >
+        {repOptions.map(rep => (
             <option key={rep.id} value={rep.id}>
               {rep.name}
             </option>
           ))}
         </select>
         {disableRepSelection && (
-          <small style={{ color: '#9aa5b1' }}>Your role limits results to your assigned accounts.</small>
+          <small className="visits-filters__notice">
+            Your role limits results to your assigned accounts.
+          </small>
         )}
-      </Section>
+      </div>
 
-      <Section title="HCP">
+      <div className="visits-filters__section">
+        <span className="visits-filters__label">HCP</span>
         <select
-          value={filters.hcpId || ''}
+          value={normalizedFilters.hcpId || ''}
           onChange={handleHcpChange}
-          disabled={isLoading}
-          style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd2d9' }}
+          disabled={isLoading || referenceLoading}
+          className="input"
         >
           <option value="">All HCPs</option>
           {hcpOptions.map(hcp => (
@@ -221,15 +210,16 @@ const VisitsFilters = ({ availableFilters, isLoading }) => {
             </option>
           ))}
         </select>
-      </Section>
+      </div>
 
-      <Section title="Status">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <div className="visits-filters__section">
+        <span className="visits-filters__label">Status</span>
+        <div className="visits-filters__status">
           {statusOptions.map(status => (
-            <label key={status.value} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', color: '#1f2933' }}>
+            <label key={status.value}>
               <input
                 type="checkbox"
-                checked={filters.statuses.includes(status.value)}
+                checked={normalizedFilters.statuses.includes(status.value)}
                 onChange={() => handleStatusToggle(status.value)}
                 disabled={isLoading}
               />
@@ -237,14 +227,15 @@ const VisitsFilters = ({ availableFilters, isLoading }) => {
             </label>
           ))}
         </div>
-      </Section>
+      </div>
 
-      <Section title="Territory">
+      <div className="visits-filters__section">
+        <span className="visits-filters__label">Territory</span>
         <select
-          value={filters.territory || ''}
+          value={normalizedFilters.territoryId || ''}
           onChange={handleTerritoryChange}
-          disabled={isLoading}
-          style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd2d9' }}
+          disabled={isLoading || referenceLoading}
+          className="input"
         >
           <option value="">All territories</option>
           {territoryOptions.map(territory => (
@@ -253,34 +244,16 @@ const VisitsFilters = ({ availableFilters, isLoading }) => {
             </option>
           ))}
         </select>
-      </Section>
+      </div>
 
-      <Section title="Role context">
-        <select
-          value={role || ''}
-          onChange={handleRoleChange}
-          style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #cbd2d9' }}
-        >
-          <option value="">Select role</option>
-          <option value="sales_manager">Sales manager</option>
-          <option value="sales_rep">Sales representative</option>
-        </select>
-        <button
-          type="button"
-          onClick={resetFilters}
-          disabled={isLoading}
-          style={{
-            marginTop: 'auto',
-            padding: '6px 8px',
-            borderRadius: '4px',
-            border: '1px solid #cbd2d9',
-            backgroundColor: '#fff',
-            cursor: 'pointer',
-          }}
-        >
-          Reset filters
-        </button>
-      </Section>
+      <div className="visits-filters__section">
+        <span className="visits-filters__label">Quick actions</span>
+        <div className="visits-filters__footer">
+          <button type="button" onClick={resetFilters} disabled={isLoading} className="btn btn-secondary">
+            Reset filters
+          </button>
+        </div>
+      </div>
     </section>
   );
 };

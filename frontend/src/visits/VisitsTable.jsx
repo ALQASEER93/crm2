@@ -5,20 +5,39 @@ const COLUMN_CONFIG = [
     key: 'visitDate',
     label: 'Visit Date',
     sortable: true,
-    accessor: row => row.visitDate || row.date || row.startTime,
+    accessor: row => row.visitDate || row.date || row.startTime || null,
     formatter: value => (value ? new Date(value).toLocaleString() : '—'),
+  },
+  {
+    key: 'account',
+    label: 'Account',
+    sortable: true,
+    accessor: row => {
+      if (row.account && typeof row.account === 'object') {
+        const type = row.account.type === 'pharmacy' ? '[Pharmacy]' : '[HCP]';
+        return `${type} ${row.account.name || ''}`.trim();
+      }
+      if (row.hcp && typeof row.hcp === 'object') {
+        return `[HCP] ${row.hcp.name || ''}`.trim();
+      }
+      if (row.pharmacy && typeof row.pharmacy === 'object') {
+        return `[Pharmacy] ${row.pharmacy.name || ''}`.trim();
+      }
+      return row.accountName || '—';
+    },
+    formatter: value => (value && typeof value !== 'object' ? value : '—'),
   },
   {
     key: 'representative',
     label: 'Representative',
     sortable: true,
-    accessor: row => row.repName || row.representative || row.rep,
-  },
-  {
-    key: 'hcp',
-    label: 'HCP',
-    sortable: true,
-    accessor: row => row.hcpName || row.hcp || row.hcpFullName,
+    accessor: row => {
+      if (row.rep && typeof row.rep === 'object') {
+        return row.rep.name || row.rep.email || '—';
+      }
+      return row.repName || row.representative || row.repEmail || row.rep || '—';
+    },
+    formatter: value => (value && typeof value !== 'object' ? value : '—'),
   },
   {
     key: 'status',
@@ -28,11 +47,53 @@ const COLUMN_CONFIG = [
     formatter: value => (value ? value.replace(/_/g, ' ') : '—'),
   },
   {
+    key: 'visitPurpose',
+    label: 'Purpose',
+    sortable: true,
+    accessor: row => row.visitPurpose || row.purpose || null,
+    formatter: value => {
+      if (!value) return '—';
+      return value
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, ch => ch.toUpperCase());
+    },
+  },
+  {
+    key: 'visitChannel',
+    label: 'Channel',
+    sortable: true,
+    accessor: row => row.visitChannel || row.channel || null,
+    formatter: value => {
+      if (!value) return '—';
+      if (value === 'in_person') return 'In person';
+      return value.charAt(0).toUpperCase() + value.slice(1);
+    },
+  },
+  {
     key: 'durationMinutes',
     label: 'Duration',
     sortable: true,
     accessor: row => row.durationMinutes ?? row.duration ?? row.visitDurationMinutes,
     formatter: value => (value != null ? `${value} min` : '—'),
+  },
+  {
+    key: 'orderValueJOD',
+    label: 'Order (JOD)',
+    sortable: true,
+    accessor: row => row.orderValueJOD ?? row.orderValue ?? null,
+    formatter: value => {
+      if (value == null || value === '') return '—';
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '—';
+      return `${num.toFixed(2)} JD`;
+    },
+  },
+  {
+    key: 'rating',
+    label: 'Rating',
+    sortable: true,
+    accessor: row => row.rating ?? null,
+    formatter: value => (value != null ? String(value) : '—'),
   },
 ];
 
@@ -100,9 +161,9 @@ const VisitsTable = ({
 
   const renderSortLabel = columnKey => {
     if (sort.field !== columnKey) {
-      return '⇅';
+      return '▲';
     }
-    return sort.direction === 'asc' ? '↑' : '↓';
+    return sort.direction === 'asc' ? '▲' : '▼';
   };
 
   const handlePrevious = () => {
@@ -130,20 +191,22 @@ const VisitsTable = ({
     <section aria-label="Visits results" style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2 style={{ margin: 0, fontSize: '20px', color: '#1f2933' }}>Visits</h2>
-        <button
-          type="button"
-          onClick={onExport}
-          disabled={exporting || isLoading}
-          style={{
-            ...buttonStyle,
-            backgroundColor: exporting ? '#cbd2d9' : '#2563eb',
-            border: '1px solid #2563eb',
-            color: '#fff',
-            fontWeight: 600,
-          }}
-        >
-          {exporting ? 'Preparing export…' : 'Export CSV'}
-        </button>
+        {onExport && (
+          <button
+            type="button"
+            onClick={onExport}
+            disabled={exporting || isLoading}
+            style={{
+              ...buttonStyle,
+              backgroundColor: exporting ? '#cbd2d9' : '#2563eb',
+              border: '1px solid #2563eb',
+              color: '#fff',
+              fontWeight: 600,
+            }}
+          >
+            {exporting ? 'Preparing export…' : 'Export CSV'}
+          </button>
+        )}
       </div>
 
       <div style={tableContainerStyle}>
@@ -157,7 +220,9 @@ const VisitsTable = ({
                   onClick={column.sortable ? () => onSortChange(column.key) : undefined}
                 >
                   <span>{column.label}</span>
-                  {column.sortable && <span style={{ marginLeft: '8px', color: '#9aa5b1' }}>{renderSortLabel(column.key)}</span>}
+                  {column.sortable && (
+                    <span style={{ marginLeft: '8px', color: '#9aa5b1' }}>{renderSortLabel(column.key)}</span>
+                  )}
                 </th>
               ))}
             </tr>
@@ -184,19 +249,22 @@ const VisitsTable = ({
                 </td>
               </tr>
             )}
-            {!isLoading && !error && visits.map(visit => (
-              <tr key={visit.id || visit.visitId}>
-                {COLUMN_CONFIG.map(column => {
-                  const rawValue = column.accessor ? column.accessor(visit) : visit[column.key];
-                  const displayValue = column.formatter ? column.formatter(rawValue) : rawValue ?? '—';
-                  return (
-                    <td key={column.key} style={bodyCellStyle}>
-                      {displayValue}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+            {!isLoading &&
+              !error &&
+              visits.map(visit => (
+                <tr key={visit.id || visit.visitId}>
+                  {COLUMN_CONFIG.map(column => {
+                    const rawValue = column.accessor ? column.accessor(visit) : visit[column.key];
+                    const safeValue = rawValue && typeof rawValue === 'object' ? '—' : rawValue;
+                    const displayValue = column.formatter ? column.formatter(safeValue) : safeValue ?? '—';
+                    return (
+                      <td key={column.key} style={bodyCellStyle}>
+                        {displayValue}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -241,7 +309,7 @@ const VisitsTable = ({
           fontSize: '13px',
         }}
       >
-        <strong>Applied filters:</strong> {appliedFilters.join(' • ')}
+        <strong>Applied filters:</strong> {appliedFilters.join(' · ')}
       </div>
     </section>
   );

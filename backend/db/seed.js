@@ -1,55 +1,68 @@
-const bcrypt = require('bcryptjs');
-const Role = require('../models/role');
-const User = require('../models/user');
+// backend/db/seed.js
+const bcrypt = require("bcryptjs");
 
 const DEFAULT_ROLES = [
-  { slug: 'admin', name: 'Administrator' },
-  { slug: 'manager', name: 'Manager' },
-  { slug: 'rep', name: 'Sales Representative' },
+  {
+    slug: "sales_manager",
+    name: "Sales Manager",
+    description: "Oversees the entire field team.",
+  },
+  {
+    slug: "sales_rep",
+    name: "Sales Representative",
+    description: "Handles assigned HCP and pharmacy accounts.",
+  },
 ];
+
+const ROLE_ALIASES = {
+  admin: "sales_manager",
+  "sales-marketing-manager": "sales_manager",
+  "medical-sales-rep": "sales_rep",
+  salesman: "sales_rep",
+};
 
 const DEFAULT_USERS = [
   {
-    name: 'Admin User',
-    email: 'admin@example.com',
-    password: 'password',
-    role: 'admin',
+    name: "Admin User",
+    email: "admin@example.com",
+    password: "password",
+    role: "sales_manager",
   },
   {
-    name: 'Manager User',
-    email: 'manager@example.com',
-    password: 'password',
-    role: 'manager',
-  },
-  {
-    name: 'Sales Rep',
-    email: 'rep@example.com',
-    password: 'password',
-    role: 'rep',
+    name: "Medical Rep",
+    email: "rep@example.com",
+    password: "password",
+    role: "sales_rep",
   },
 ];
 
-const seedUsersAndRoles = async () => {
+async function seedUsersAndRoles() {
+  const { Role, User } = require("../models");
+  if (!Role || !User) {
+    throw new Error("Role or User model not loaded");
+  }
+
   const rolesBySlug = {};
 
   for (const roleData of DEFAULT_ROLES) {
-    const [role] = await Role.findOrCreate({
-      where: { slug: roleData.slug },
-      defaults: roleData,
-    });
+    const [role] = await Role.upsert(
+      {
+        slug: roleData.slug,
+        name: roleData.name,
+        description: roleData.description || null,
+      },
+      { returning: true }
+    );
     rolesBySlug[role.slug] = role;
   }
 
   for (const userData of DEFAULT_USERS) {
     const role = rolesBySlug[userData.role];
-    if (!role) {
-      // Should never happen, but guard against inconsistent seed config.
-      // eslint-disable-next-line no-continue
-      continue;
-    }
+    if (!role) continue;
 
     const passwordHash = await bcrypt.hash(userData.password, 10);
-    const [user, created] = await User.findOrCreate({
+
+    await User.findOrCreate({
       where: { email: userData.email },
       defaults: {
         name: userData.name,
@@ -58,35 +71,25 @@ const seedUsersAndRoles = async () => {
         roleId: role.id,
       },
     });
+  }
 
-    if (!created) {
-      const updates = {
-        name: userData.name,
-        roleId: role.id,
-      };
+  for (const [alias, canonicalSlug] of Object.entries(ROLE_ALIASES)) {
+    const canonicalRole = rolesBySlug[canonicalSlug];
+    if (!canonicalRole) {
+      continue;
+    }
 
-      if (user.passwordHash !== passwordHash) {
-        updates.passwordHash = passwordHash;
-      }
-
-      await user.update(updates);
+    const legacyRole = await Role.findOne({ where: { slug: alias } });
+    if (legacyRole) {
+      await User.update(
+        { roleId: canonicalRole.id },
+        { where: { roleId: legacyRole.id } }
+      );
+      await legacyRole.destroy();
     }
   }
-};
+
+  console.log("Seeded default roles & users");
+}
 
 module.exports = { seedUsersAndRoles };
-const { seedVisits } = require('../scripts/seedVisits');
-
-module.exports = seedVisits;
-
-if (require.main === module) {
-  seedVisits()
-    .then(result => {
-      console.log(`Seeded visits. ${result.inserted} new row(s) added.`);
-      process.exit(0);
-    })
-    .catch(error => {
-      console.error('Failed to seed visits:', error);
-      process.exit(1);
-    });
-}

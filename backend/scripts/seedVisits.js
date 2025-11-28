@@ -37,21 +37,21 @@ const seedVisits = async () => {
             phone: hcp.phone || null,
             email: hcp.email || null,
           },
-          { transaction }
+          { transaction },
         );
       }
 
       hcpByKey.set(`${record.name}|${record.areaTag}`, record);
     }
 
-    const salesRepByName = new Map();
+    const salesRepByEmail = new Map();
     for (const rep of sampleData.salesReps) {
       const territory = territoryByCode.get(rep.territoryCode) || null;
       const [record, created] = await SalesRep.findOrCreate({
-        where: { name: rep.name },
+        where: { email: rep.email },
         defaults: {
           name: rep.name,
-          email: rep.email || null,
+          email: rep.email,
           territoryId: territory ? territory.id : null,
         },
         transaction,
@@ -60,24 +60,26 @@ const seedVisits = async () => {
       if (!created) {
         await record.update(
           {
-            email: rep.email || null,
+            name: rep.name,
+            email: rep.email,
             territoryId: territory ? territory.id : null,
           },
-          { transaction }
+          { transaction },
         );
       }
 
-      salesRepByName.set(record.name, record);
+      salesRepByEmail.set(rep.email.toLowerCase(), record);
     }
 
     let inserted = 0;
+    let updated = 0;
     for (const visit of sampleData.visits) {
       const territory = territoryByCode.get(visit.territoryCode);
-      const rep = salesRepByName.get(visit.repName);
+      const rep = visit.repEmail ? salesRepByEmail.get(visit.repEmail.toLowerCase()) : null;
       const hcp = hcpByKey.get(`${visit.hcpName}|${visit.hcpAreaTag}`);
 
       if (!territory || !rep || !hcp) {
-        throw new Error(`Invalid visit reference for ${visit.repName} / ${visit.hcpName}.`);
+        throw new Error(`Invalid visit reference for ${visit.repEmail || visit.repName} / ${visit.hcpName}.`);
       }
 
       const payload = {
@@ -100,17 +102,16 @@ const seedVisits = async () => {
         transaction,
       });
 
-      if (!created) {
-        await record.update(payload, { transaction });
-      }
-
       if (created) {
         inserted += 1;
+      } else {
+        await record.update(payload, { transaction });
+        updated += 1;
       }
     }
 
     await transaction.commit();
-    return { inserted };
+    return { inserted, updated };
   } catch (error) {
     await transaction.rollback();
     throw error;
@@ -118,15 +119,18 @@ const seedVisits = async () => {
 };
 
 if (require.main === module) {
-  seedVisits()
-    .then(result => {
-      console.log(`Seeded visits. ${result.inserted} new row(s) added.`);
+  (async () => {
+    try {
+      const result = await seedVisits();
+      console.log('✅ Seeded sample visits', result);
+      await sequelize.close();
       process.exit(0);
-    })
-    .catch(error => {
+    } catch (error) {
       console.error('Failed to seed visits:', error);
+      await sequelize.close().catch(() => {});
       process.exit(1);
-    });
+    }
+  })();
 }
 
 module.exports = { seedVisits };

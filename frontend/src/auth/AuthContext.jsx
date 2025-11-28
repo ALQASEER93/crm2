@@ -1,10 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { apiFetch } from '../api/client';
 
 const storageKey = 'crm.activeUser';
 
 const defaultState = {
   user: null,
-  role: null,
   token: null,
 };
 
@@ -25,7 +25,6 @@ function parseStoredState() {
     if (parsed && typeof parsed === 'object') {
       return {
         user: parsed.user ?? null,
-        role: parsed.role ?? null,
         token: parsed.token ?? null,
       };
     }
@@ -39,7 +38,7 @@ function parseStoredState() {
 export const AuthProvider = ({ children }) => {
   const isMountedRef = useRef(false);
   const [authState, setAuthState] = useState(() => parseStoredState());
-  const { user, role, token } = authState;
+  const { user, token } = authState;
 
   useEffect(() => {
     if (!isMountedRef.current) {
@@ -48,77 +47,49 @@ export const AuthProvider = ({ children }) => {
     }
 
     try {
-      if (user) {
-        window.localStorage.setItem(
-          storageKey,
-          JSON.stringify({ user, role, token })
-        );
+      if (user && token) {
+        window.localStorage.setItem(storageKey, JSON.stringify({ user, token }));
       } else {
         window.localStorage.removeItem(storageKey);
       }
     } catch (error) {
       console.warn('Unable to persist auth state', error);
     }
-  }, [user, role, token]);
+  }, [user, token]);
 
-  const login = useMemo(() => async ({ email, password, role: nextRole }) => {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
+  const login = useMemo(
+    () => async ({ email, password }) => {
+      const { data: result, response } = await apiFetch('/api/auth/login', {
+        method: 'POST',
+        body: { email, password },
+      });
 
-    if (!response.ok) {
-      let message = 'Unable to sign in. Please check your credentials and try again.';
-      try {
-        const payload = await response.json();
-        if (payload && typeof payload.message === 'string') {
-          message = payload.message;
-        }
-      } catch (error) {
-        // Swallow JSON parse errors and keep default message.
-      }
-      throw new Error(message);
-    }
+      const tokenFromHeader = response.headers.get('X-Auth-Token');
+      setAuthState({
+        user: result,
+        token: tokenFromHeader,
+      });
 
-    const result = await response.json();
-    const tokenFromHeader = response.headers.get('X-Auth-Token');
-
-    setAuthState({
-      user: result,
-      role: nextRole || null,
-      token: tokenFromHeader,
-    });
-
-    return result;
-  }, []);
+      return result;
+    },
+    [],
+  );
 
   const logout = useMemo(
     () => () => {
       setAuthState(defaultState);
     },
-    []
-  );
-
-  const setRole = useMemo(
-    () => nextRole => {
-      setAuthState(prev => ({ ...prev, role: nextRole }));
-    },
-    []
+    [],
   );
 
   const value = useMemo(
     () => ({
       user,
-      role,
       token,
       login,
       logout,
-      setRole,
     }),
-    [user, role, token, login, logout, setRole]
+    [user, token, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -131,4 +102,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

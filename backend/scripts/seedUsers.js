@@ -8,31 +8,13 @@ const users = [
     name: 'Admin User',
     email: 'admin@example.com',
     password: 'password',
-    roleName: 'admin',
+    roleSlug: 'sales_manager',
   },
   {
-    name: 'Regional Manager',
-    email: 'manager@example.com',
+    name: 'Medical Rep',
+    email: 'rep@example.com',
     password: 'password',
-    roleName: 'manager',
-  },
-  {
-    name: 'Meredith Grey',
-    email: 'meredith.grey@example.com',
-    password: 'password',
-    roleName: 'rep',
-  },
-  {
-    name: 'Derek Shepherd',
-    email: 'derek.shepherd@example.com',
-    password: 'password',
-    roleName: 'rep',
-  },
-  {
-    name: 'Miranda Bailey',
-    email: 'miranda.bailey@example.com',
-    password: 'password',
-    roleName: 'rep',
+    roleSlug: 'sales_rep',
   },
 ];
 
@@ -43,22 +25,22 @@ const seedUsers = async () => {
   try {
     const roleCache = new Map();
 
-    const getRole = async roleName => {
-      if (!roleCache.has(roleName)) {
-        const role = await Role.findOne({ where: { name: roleName }, transaction });
+    const getRole = async roleSlug => {
+      if (!roleCache.has(roleSlug)) {
+        const role = await Role.findOne({ where: { slug: roleSlug }, transaction });
 
         if (!role) {
-          throw new Error(`Role \"${roleName}\" has not been seeded yet.`);
+          throw new Error(`Role "${roleSlug}" has not been seeded yet.`);
         }
 
-        roleCache.set(roleName, role);
+        roleCache.set(roleSlug, role);
       }
 
-      return roleCache.get(roleName);
+      return roleCache.get(roleSlug);
     };
 
     for (const user of users) {
-      const role = await getRole(user.roleName);
+      const role = await getRole(user.roleSlug);
       const passwordHash = await bcrypt.hash(user.password, 10);
       const payload = {
         name: user.name,

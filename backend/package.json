@@ -1,35 +1,37 @@
 {
-  "name": "backend",
+  "name": "crm2-backend",
   "version": "1.0.0",
-  "description": "This directory will contain the Node.js/Express backend.",
+  "private": true,
   "main": "index.js",
   "scripts": {
-    "test": "jest --runInBand",
-    "seed": "node db/seed.js",
+    "dev": "nodemon index.js",
+    "start": "node index.js",
     "seed:roles": "node scripts/seedRoles.js",
     "seed:users": "node scripts/seedUsers.js",
     "seed:visits": "node scripts/seedVisits.js",
-    "seed:all": "npm run seed:roles && npm run seed:users && npm run seed:visits"
+    "convert:accounts": "node scripts/convertAccountsFromExcel.js",
+    "seed:accounts": "node scripts/seedAccounts.js",
+    "import:accounts": "node scripts/importAccountsFromExcel.js",
+    "test": "jest",
+    "lint": "echo \"lint skipped\"",
+    "build": "echo \"build skipped\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "csv-stringify": "^6.5.2",
-    "express": "^5.1.0",
+    "cors": "^2.8.5",
+    "csv-stringify": "^6.6.0",
+    "dotenv": "^16.4.0",
+    "express": "^4.19.0",
     "jsonwebtoken": "^9.0.2",
-    "sequelize": "^6.37.7",
-    "sqlite3": "^5.1.7"
+    "pg": "^8.11.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.0",
+    "sqlite3": "^5.1.7",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "jest": "^29.7.0",
+    "nodemon": "^3.1.0",
     "supertest": "^7.1.1"
-  }
-}
-{
-  "scripts": {
-    "seed:visits": "node db/seedVisits.js"
   }
 }
