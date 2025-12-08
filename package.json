@@ -1,0 +1,14 @@
+{
+  "name": "dopamine-crm-monorepo",
+  "version": "1.0.0",
+  "description": "Monorepo for the Dopamine CRM application, containing the backend API and frontend.",
+  "private": true,
+  "scripts": {
+    "install:api": "cd dopamine-crm-api && npm install",
+    "dev:api": "cd dopamine-crm-api && npm run dev",
+    "test": "cd dopamine-crm-api && npm run test",
+    "migrate": "cd dopamine-crm-api && npm run migrate"
+  },
+  "author": "",
+  "license": "ISC"
+}
